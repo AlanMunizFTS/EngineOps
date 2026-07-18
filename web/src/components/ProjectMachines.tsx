@@ -16,14 +16,21 @@ interface ProjectMachinesProps {
   ) => void;
 }
 
+const STATUS_STYLES: Record<ImplementationStatus, string> = {
+  planned: "bg-ink-700 text-slate-300",
+  active: "bg-ember-500/15 text-ember-400",
+  superseded: "bg-amber-500/15 text-amber-400",
+  decommissioned: "bg-slate-600/20 text-slate-500",
+};
+
 export default function ProjectMachines({
   machines,
   onAddMachine,
   onAddImplementation,
 }: ProjectMachinesProps) {
   return (
-    <section className="rounded-lg bg-white p-6 shadow">
-      <h2 className="mb-4 text-base font-semibold text-slate-900">Machines</h2>
+    <section className="rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-lg shadow-black/20">
+      <h2 className="mb-4 text-base font-semibold text-slate-100">Machines</h2>
       <NewMachineForm onSubmit={onAddMachine} />
       <div className="mt-4 space-y-4">
         {machines.map((machine) => (
@@ -66,25 +73,25 @@ function NewMachineForm({
         placeholder="Machine name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="rounded border border-slate-300 px-2 py-1 text-sm"
+        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <input
         type="text"
         placeholder="Type (optional)"
         value={machineType}
         onChange={(e) => setMachineType(e.target.value)}
-        className="rounded border border-slate-300 px-2 py-1 text-sm"
+        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <input
         type="text"
         placeholder="Location (optional)"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
-        className="rounded border border-slate-300 px-2 py-1 text-sm"
+        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <button
         type="submit"
-        className="rounded bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-700"
+        className="rounded-lg bg-ember-500 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-ember-600"
       >
         Add machine
       </button>
@@ -113,35 +120,39 @@ function MachineCard({
   }
 
   return (
-    <div className="rounded border border-slate-200 p-4">
-      <p className="font-medium text-slate-900">{machine.name}</p>
+    <div className="rounded-xl border border-ink-700 bg-ink-850 p-4">
+      <p className="font-medium text-slate-100">{machine.name}</p>
       <p className="text-xs text-slate-500">
         {[machine.machine_type, machine.location].filter(Boolean).join(" · ") || "No details"}
       </p>
 
-      <ul className="mt-2 space-y-1">
+      <ul className="mt-3 space-y-1.5">
         {machine.implementations.map((impl) => (
-          <li key={impl.id} className="flex justify-between text-sm text-slate-700">
-            <span>{impl.label}</span>
-            <span className="text-slate-400">{impl.status}</span>
+          <li key={impl.id} className="flex items-center justify-between text-sm">
+            <span className="text-slate-300">{impl.label}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
+            >
+              {impl.status}
+            </span>
           </li>
         ))}
         {machine.implementations.length === 0 && (
-          <li className="text-sm text-slate-400">No implementations yet.</li>
+          <li className="text-sm text-slate-500">No implementations yet.</li>
         )}
       </ul>
 
-      <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
+      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
         <input
           type="text"
           placeholder="New implementation label"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+          className="flex-1 rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
         />
         <button
           type="submit"
-          className="rounded bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-700"
+          className="rounded-lg bg-ink-700 px-3 py-1 text-sm font-medium text-slate-200 transition-colors hover:bg-ink-600"
         >
           Add
         </button>

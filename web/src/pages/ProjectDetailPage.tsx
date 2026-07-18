@@ -18,6 +18,7 @@ import {
   type ProjectResponse,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import Brand from "../components/Brand";
 import ProjectAreaTiles from "../components/ProjectAreaTiles";
 import ProjectMachines, { type MachineWithImplementations } from "../components/ProjectMachines";
 import ProjectTimeline from "../components/ProjectTimeline";
@@ -107,21 +108,32 @@ export default function ProjectDetailPage() {
   }
 
   if (!project) {
-    return <div className="p-8 text-sm text-slate-500">{error ?? "Loading..."}</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-950">
+        <p className="text-sm text-slate-500">{error ?? "Loading..."}</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-white px-8 py-4 shadow">
-        <Link to="/projects" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Projects
-        </Link>
-        <h1 className="text-lg font-semibold text-slate-900">{project.name}</h1>
-        {project.description && <p className="text-sm text-slate-500">{project.description}</p>}
+    <div className="min-h-screen bg-ink-950">
+      <header className="border-b border-ink-800 bg-ink-900/70 px-8 py-4 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <Brand subtitle={project.name} />
+          <Link
+            to="/projects"
+            className="text-sm text-slate-500 transition-colors hover:text-ember-400"
+          >
+            ← All projects
+          </Link>
+        </div>
+        {project.description && (
+          <p className="mx-auto mt-2 max-w-5xl text-sm text-slate-500">{project.description}</p>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 p-8">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-400">{error}</p>}
 
         <ProjectAreaTiles
           areas={areas}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { getCurrentUser, login } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import Brand from "../components/Brand";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -25,32 +26,43 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-950">
+      <div className="pointer-events-none absolute left-1/2 top-1/3 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ember-500/10 blur-3xl" />
+
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-8 shadow"
+        className="relative w-full max-w-sm space-y-5 rounded-2xl border border-ink-700 bg-ink-900 p-8 shadow-xl shadow-black/40"
       >
-        <h1 className="text-xl font-semibold text-slate-900">Engineering Ops Platform</h1>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="w-full rounded border border-slate-300 px-3 py-2"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="w-full rounded border border-slate-300 px-3 py-2"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="space-y-1">
+          <Brand />
+          <p className="pt-3 text-lg font-semibold text-slate-100">Sign in</p>
+          <p className="text-sm text-slate-500">Engineering operations, in one place.</p>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
         <button
           type="submit"
-          className="w-full rounded bg-slate-900 py-2 text-white hover:bg-slate-700"
+          className="w-full rounded-lg bg-ember-500 py-2 text-sm font-medium text-white transition-colors hover:bg-ember-600"
         >
           Log in
         </button>
