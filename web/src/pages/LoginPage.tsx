@@ -1,31 +1,27 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { getCurrentUser, login, type UserResponse } from "../api/client";
+import { getCurrentUser, login } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<UserResponse | null>(null);
+  const { setSession } = useAuth();
+  const navigate = useNavigate();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     try {
       const token = await login(email, password);
-      const currentUser = await getCurrentUser(token.access_token);
-      setUser(currentUser);
+      const user = await getCurrentUser(token.access_token);
+      setSession(token.access_token, user);
+      navigate("/projects");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
-  }
-
-  if (user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-lg text-slate-800">Logged in as {user.email}</p>
-      </div>
-    );
   }
 
   return (
