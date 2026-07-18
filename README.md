@@ -5,7 +5,7 @@ projects, machines, implementations, BOM/stock/quoting/procurement, issues/kanba
 versioned documents and deliverables, and a full project audit trail/timeline.
 
 Being built incrementally by phase — see `.claude/claude_code_kickoff_prompt.md` for the full
-spec. This is **Phase 0 — Foundations**.
+spec. This is **Phase 1 — Projects, Machines, Implementations**.
 
 ## Quickstart
 
@@ -35,6 +35,28 @@ Docker Compose picks up `.env` automatically.
 
 `project_members` (Phase 0 kickoff spec) is deferred to Phase 1 alongside `projects`, since it
 needs a real foreign key to a table that doesn't exist yet — see the Phase 0 PR description.
+
+## Phase 1 scope
+
+- `projects`, `project_members` (project-scoped `owner`/`contributor`/`viewer` roles, distinct
+  from the global roles in `user_roles`)
+- Project progress tracked as multiple independent per-area tracks instead of a single
+  `projects.status` field — `area_types`/`area_statuses` (seeded catalog: Scope & Charter,
+  Procurement, Import/Export, Electrical, Mechanical, Vision) and `project_areas` (one row per
+  project × area type, each with its own status). See
+  `docs/architecture/adr/0001-project-area-status-tracking.md` for why.
+- `machines`, `implementations` (`implementations.status`: `planned`/`active`/`superseded`/
+  `decommissioned`, with `superseded_by` linking to the replacing implementation)
+- `audit_log`, written transactionally alongside every write in this phase via a shared
+  `AuditRecorder` hook (not copy-pasted logging per router). `GET /projects/{id}/timeline` is
+  just this table filtered and ordered — no second feed table.
+- React: projects list + create-project form, project detail page (area status tiles, machines
+  with their implementations, timeline feed)
+
+Creating a project auto-creates the creator as `owner` and one `project_area` per seeded area
+type, all in one transaction. Role-based **enforcement** of `project_members` (who can actually
+write to a project) is deferred to Phase 7 per the kickoff spec — Phase 1 only establishes the
+membership data.
 
 ## Local development (without Docker)
 
