@@ -5,10 +5,26 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ops_platform.adapters.db.sqlalchemy_area_repository import SqlAlchemyAreaRepository
+from ops_platform.adapters.db.sqlalchemy_audit_log_repository import (
+    SqlAlchemyAuditLogRepository,
+)
+from ops_platform.adapters.db.sqlalchemy_audit_recorder import SqlAlchemyAuditRecorder
+from ops_platform.adapters.db.sqlalchemy_implementation_repository import (
+    SqlAlchemyImplementationRepository,
+)
+from ops_platform.adapters.db.sqlalchemy_machine_repository import SqlAlchemyMachineRepository
+from ops_platform.adapters.db.sqlalchemy_project_repository import SqlAlchemyProjectRepository
 from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from ops_platform.core.security import decode_access_token
 from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import User
+from ops_platform.domain.ports.area_repository import AreaRepository
+from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
+from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.implementation_repository import ImplementationRepository
+from ops_platform.domain.ports.machine_repository import MachineRepository
+from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -18,6 +34,42 @@ def get_user_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> UserRepository:
     return SqlAlchemyUserRepository(session)
+
+
+def get_project_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProjectRepository:
+    return SqlAlchemyProjectRepository(session)
+
+
+def get_area_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AreaRepository:
+    return SqlAlchemyAreaRepository(session)
+
+
+def get_machine_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MachineRepository:
+    return SqlAlchemyMachineRepository(session)
+
+
+def get_implementation_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ImplementationRepository:
+    return SqlAlchemyImplementationRepository(session)
+
+
+def get_audit_recorder(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AuditRecorder:
+    return SqlAlchemyAuditRecorder(session)
+
+
+def get_audit_log_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AuditLogRepository:
+    return SqlAlchemyAuditLogRepository(session)
 
 
 async def get_current_user(
