@@ -1,4 +1,4 @@
-# Engineering Ops Platform
+# EngineOps
 
 Multiuser, GitHub-inspired engineering operations platform for an industrial automation team:
 projects, machines, implementations, BOM/stock/quoting/procurement, issues/kanban/milestones,
@@ -11,7 +11,7 @@ spec. This is **Phase 0 — Foundations**.
 
 ```bash
 git clone <repo-url>
-cd vision_central_planner
+cd EngineOps
 docker compose up -d
 ```
 
