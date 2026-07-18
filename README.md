@@ -26,6 +26,19 @@ migrations, then the API and web app start.
 To use custom values (e.g. a real JWT secret), copy `.env.example` to `.env` and edit it —
 Docker Compose picks up `.env` automatically.
 
+### First admin user
+
+`POST /auth/register` always creates a user with zero roles - there's no "first user becomes
+admin" magic. Bootstrap one explicitly:
+
+```bash
+docker compose exec api python utils/create_admin.py --email admin@example.com --password "change-me"
+```
+
+Idempotent - re-running it just confirms the user/role already exist. Role-based
+**enforcement** isn't wired up until Phase 7, so this doesn't unlock anything today beyond
+having a user flagged `admin` in the database ahead of that.
+
 ## Phase 0 scope
 
 - `users`, `roles`, `user_roles` tables (Alembic migration, seeded with `admin`/`engineer`/`viewer`)
