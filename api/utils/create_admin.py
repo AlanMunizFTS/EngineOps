@@ -1,10 +1,10 @@
-"""Bootstrap the first admin user - idempotent (safe to re-run).
+"""Bootstrap (or reset) the admin user - idempotent (safe to re-run).
 
-Creates the user if it doesn't exist yet, and grants the seeded "admin" role
-(from migration 0001) if it doesn't already hold it. There is no other way to get
-an admin: `POST /auth/register` always creates a user with zero roles, and
-role-based enforcement isn't built until Phase 7 - but the role still needs to
-exist on someone before that lands.
+Creates the user if it doesn't exist yet, or resets their password if it does, and
+grants the seeded "admin" role (from migration 0001) if it doesn't already hold it.
+There is no other way to get an admin: `POST /auth/register` always creates a user
+with zero roles, and role-based enforcement isn't built until Phase 7 - but the
+role still needs to exist on someone before that lands.
 
 Usage:
     docker compose exec api python utils/create_admin.py \
@@ -12,6 +12,12 @@ Usage:
 
 Or locally (after `pip install -e ".[dev]"`):
     cd api && python utils/create_admin.py --email admin@example.com --password "change-me"
+
+PowerShell warning: use single quotes for the password, not double quotes. In a
+double-quoted string PowerShell interpolates `$name` - a password like
+"Foo$2023#" silently becomes "Foo#" (`$2023` expands to nothing, since it isn't
+a defined variable) and you'll lock yourself out without any error. Single
+quotes ('Foo$2023#') are always literal.
 """
 
 from __future__ import annotations
@@ -40,7 +46,9 @@ async def _ensure_admin(session: AsyncSession, email: str, password: str, full_n
         await session.flush()
         print(f"Created user {email}")
     else:
-        print(f"User {email} already exists")
+        user.hashed_password = hash_password(password)
+        user.full_name = full_name
+        print(f"User {email} already exists - password reset")
 
     admin_role = (
         await session.execute(select(RoleORM).where(RoleORM.name == ADMIN_ROLE_NAME))
