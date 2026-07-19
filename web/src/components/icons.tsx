@@ -84,3 +84,50 @@ export function FolderIcon({ className = "h-4 w-4" }: IconProps) {
     </svg>
   );
 }
+
+export function AiBadgeIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5 13 11l3.5 1-3.5 1-1 3.5-1-3.5L7.5 12l3.5-1z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+export function GitCompareIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <circle cx="6" cy="6" r="2.25" />
+      <circle cx="6" cy="18" r="2.25" />
+      <circle cx="18" cy="10" r="2.25" />
+      <path strokeLinecap="round" d="M6 8.25v7.5M18 12.25V16a2 2 0 0 1-2 2h-4" />
+    </svg>
+  );
+}
+
+export function BookIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" />
+      <path strokeLinecap="round" d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20" />
+    </svg>
+  );
+}
+
+export function InboxIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h4l2 3h4l2-3h4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 5h13l2 7v6a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1v-6z" />
+    </svg>
+  );
+}

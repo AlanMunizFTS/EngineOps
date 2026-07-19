@@ -7,7 +7,13 @@ import { useAuth } from "../auth/AuthContext";
 import ProjectSidebar from "./ProjectSidebar";
 import TopBar from "./TopBar";
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function AppShell({
+  children,
+  breadcrumb,
+}: {
+  children: ReactNode;
+  breadcrumb?: string;
+}) {
   const { token } = useAuth();
   const { projectId: activeProjectId } = useParams<{ projectId?: string }>();
 
@@ -23,7 +29,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-ink-950">
-      <TopBar projects={projects} onToggleSidebar={() => setIsNavExpanded((prev) => !prev)} />
+      <TopBar
+        projects={projects}
+        onToggleSidebar={() => setIsNavExpanded((prev) => !prev)}
+        breadcrumb={breadcrumb}
+      />
       <div className="flex min-h-0 flex-1">
         <ProjectSidebar
           projects={projects}
