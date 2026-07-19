@@ -150,8 +150,11 @@ class ProjectAreaORM(Base):
     status: Mapped[AreaStatusORM] = relationship(lazy="selectin")
 
 
-class MachineORM(Base):
-    __tablename__ = "machines"
+class PlantORM(Base):
+    """A physical site a project's standard is deployed to - sits between
+    projects and machines: `standard (project) > plant > machine > implementation`."""
+
+    __tablename__ = "plants"
 
     id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -159,6 +162,25 @@ class MachineORM(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MachineORM(Base):
+    __tablename__ = "machines"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    plant_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("plants.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -13,7 +13,7 @@ from ops_platform.domain.ports.machine_repository import MachineRepository
 def _to_entity(orm_machine: MachineORM) -> Machine:
     return Machine(
         id=orm_machine.id,
-        project_id=orm_machine.project_id,
+        plant_id=orm_machine.plant_id,
         name=orm_machine.name,
         machine_type=orm_machine.machine_type,
         location=orm_machine.location,
@@ -26,10 +26,10 @@ class SqlAlchemyMachineRepository(MachineRepository):
         self._session = session
 
     async def create(
-        self, project_id: UUID, name: str, machine_type: str | None, location: str | None
+        self, plant_id: UUID, name: str, machine_type: str | None, location: str | None
     ) -> Machine:
         orm_machine = MachineORM(
-            project_id=project_id, name=name, machine_type=machine_type, location=location
+            plant_id=plant_id, name=name, machine_type=machine_type, location=location
         )
         self._session.add(orm_machine)
         await self._session.flush()
@@ -40,10 +40,10 @@ class SqlAlchemyMachineRepository(MachineRepository):
         orm_machine = await self._session.get(MachineORM, machine_id)
         return _to_entity(orm_machine) if orm_machine else None
 
-    async def list_for_project(self, project_id: UUID) -> list[Machine]:
+    async def list_for_plant(self, plant_id: UUID) -> list[Machine]:
         result = await self._session.execute(
             select(MachineORM)
-            .where(MachineORM.project_id == project_id)
+            .where(MachineORM.plant_id == plant_id)
             .order_by(MachineORM.created_at)
         )
         return [_to_entity(row) for row in result.scalars().all()]

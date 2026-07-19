@@ -100,9 +100,22 @@ class ProjectArea:
 
 
 @dataclass(frozen=True, slots=True)
-class Machine:
+class Plant:
+    """A physical site a project's standard is deployed to. Sits between Project
+    and Machine: one project (the standard) rolls out to many plants, each plant
+    has its own machines - `standard > plant > machine > implementation`."""
+
     id: UUID
     project_id: UUID
+    name: str
+    location: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class Machine:
+    id: UUID
+    plant_id: UUID
     name: str
     machine_type: str | None
     location: str | None
