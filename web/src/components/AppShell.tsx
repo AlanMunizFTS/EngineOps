@@ -12,7 +12,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { projectId: activeProjectId } = useParams<{ projectId?: string }>();
 
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isNavExpanded, setIsNavExpanded] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -23,9 +23,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-ink-950">
-      <TopBar projects={projects} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
+      <TopBar projects={projects} onToggleSidebar={() => setIsNavExpanded((prev) => !prev)} />
       <div className="flex min-h-0 flex-1">
-        {isSidebarOpen && <ProjectSidebar projects={projects} activeProjectId={activeProjectId} />}
+        <ProjectSidebar
+          projects={projects}
+          activeProjectId={activeProjectId}
+          isExpanded={isNavExpanded}
+        />
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
