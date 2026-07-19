@@ -14,7 +14,9 @@ class Base(DeclarativeBase):
     pass
 
 
-def _enum_values(enum_cls: type) -> list[str]:
+def enum_values(enum_cls: type) -> list[str]:
+    """Shared with orm_models_issues.py so both modules' Enum columns store the
+    lowercase string values rather than the Python member names."""
     return [member.value for member in enum_cls]
 
 
@@ -86,7 +88,7 @@ class ProjectMemberORM(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     project_role: Mapped[ProjectRole] = mapped_column(
-        Enum(ProjectRole, name="project_role", values_callable=_enum_values), nullable=False
+        Enum(ProjectRole, name="project_role", values_callable=enum_values), nullable=False
     )
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -216,7 +218,7 @@ class ImplementationORM(Base):
     )
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[ImplementationStatus] = mapped_column(
-        Enum(ImplementationStatus, name="implementation_status", values_callable=_enum_values),
+        Enum(ImplementationStatus, name="implementation_status", values_callable=enum_values),
         nullable=False,
         default=ImplementationStatus.PLANNED,
     )
