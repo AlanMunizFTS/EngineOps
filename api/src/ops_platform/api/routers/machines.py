@@ -9,14 +9,15 @@ from ops_platform.api.deps import (
     get_current_user,
     get_implementation_repository,
     get_machine_repository,
-    get_project_repository,
+    get_plant_repository,
 )
+from ops_platform.api.routers.plants import get_plant_or_404
 from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import Implementation, Machine, User
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.machine_repository import MachineRepository
-from ops_platform.domain.ports.project_repository import ProjectRepository
+from ops_platform.domain.ports.plant_repository import PlantRepository
 from ops_platform.schemas.machines import (
     ImplementationCreateRequest,
     ImplementationResponse,
@@ -30,7 +31,7 @@ router = APIRouter(tags=["machines"])
 def _machine_response(machine: Machine) -> MachineResponse:
     return MachineResponse(
         id=machine.id,
-        project_id=machine.project_id,
+        plant_id=machine.plant_id,
         name=machine.name,
         machine_type=machine.machine_type,
         location=machine.location,
@@ -57,30 +58,29 @@ async def _get_machine_or_404(machine_repo: MachineRepository, machine_id: UUID)
 
 
 @router.post(
-    "/projects/{project_id}/machines",
+    "/plants/{plant_id}/machines",
     response_model=MachineResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_machine(
-    project_id: UUID,
+    plant_id: UUID,
     payload: MachineCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
     machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
     audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> MachineResponse:
-    if await project_repo.get(project_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    plant = await get_plant_or_404(plant_repo, plant_id)
 
     machine = await machine_repo.create(
-        project_id=project_id,
+        plant_id=plant_id,
         name=payload.name,
         machine_type=payload.machine_type,
         location=payload.location,
     )
     await audit.record(
-        project_id=project_id,
+        project_id=plant.project_id,
         actor_id=current_user.id,
         entity_type="machine",
         entity_id=machine.id,
@@ -91,16 +91,14 @@ async def create_machine(
     return _machine_response(machine)
 
 
-@router.get("/projects/{project_id}/machines", response_model=list[MachineResponse])
-async def list_project_machines(
-    project_id: UUID,
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+@router.get("/plants/{plant_id}/machines", response_model=list[MachineResponse])
+async def list_plant_machines(
+    plant_id: UUID,
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
     machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
 ) -> list[MachineResponse]:
-    if await project_repo.get(project_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-
-    machines = await machine_repo.list_for_project(project_id)
+    await get_plant_or_404(plant_repo, plant_id)
+    machines = await machine_repo.list_for_plant(plant_id)
     return [_machine_response(machine) for machine in machines]
 
 
@@ -123,6 +121,7 @@ async def create_implementation(
     payload: ImplementationCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
     implementation_repo: Annotated[
         ImplementationRepository, Depends(get_implementation_repository)
     ],
@@ -130,12 +129,13 @@ async def create_implementation(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ImplementationResponse:
     machine = await _get_machine_or_404(machine_repo, machine_id)
+    plant = await get_plant_or_404(plant_repo, machine.plant_id)
 
     implementation = await implementation_repo.create(
         machine_id=machine_id, label=payload.label, status=payload.status
     )
     await audit.record(
-        project_id=machine.project_id,
+        project_id=plant.project_id,
         actor_id=current_user.id,
         entity_type="implementation",
         entity_id=implementation.id,
@@ -167,6 +167,7 @@ async def supersede_implementation(
     superseded_by: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
     implementation_repo: Annotated[
         ImplementationRepository, Depends(get_implementation_repository)
     ],
@@ -179,10 +180,11 @@ async def supersede_implementation(
             status_code=status.HTTP_404_NOT_FOUND, detail="Implementation not found"
         )
     machine = await _get_machine_or_404(machine_repo, implementation.machine_id)
+    plant = await get_plant_or_404(plant_repo, machine.plant_id)
 
     updated = await implementation_repo.supersede(implementation_id, superseded_by)
     await audit.record(
-        project_id=machine.project_id,
+        project_id=plant.project_id,
         actor_id=current_user.id,
         entity_type="implementation",
         entity_id=implementation_id,

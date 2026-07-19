@@ -6,6 +6,19 @@ from pydantic import BaseModel, Field
 from ops_platform.domain.entities import ImplementationStatus
 
 
+class PlantCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    location: str | None = None
+
+
+class PlantResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    name: str
+    location: str | None
+    created_at: datetime
+
+
 class MachineCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     machine_type: str | None = None
@@ -14,7 +27,7 @@ class MachineCreateRequest(BaseModel):
 
 class MachineResponse(BaseModel):
     id: UUID
-    project_id: UUID
+    plant_id: UUID
     name: str
     machine_type: str | None
     location: str | None

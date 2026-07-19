@@ -14,6 +14,7 @@ from ops_platform.adapters.db.sqlalchemy_implementation_repository import (
     SqlAlchemyImplementationRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_machine_repository import SqlAlchemyMachineRepository
+from ops_platform.adapters.db.sqlalchemy_plant_repository import SqlAlchemyPlantRepository
 from ops_platform.adapters.db.sqlalchemy_project_repository import SqlAlchemyProjectRepository
 from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from ops_platform.core.security import decode_access_token
@@ -24,6 +25,7 @@ from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.machine_repository import MachineRepository
+from ops_platform.domain.ports.plant_repository import PlantRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
@@ -46,6 +48,12 @@ def get_area_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> AreaRepository:
     return SqlAlchemyAreaRepository(session)
+
+
+def get_plant_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PlantRepository:
+    return SqlAlchemyPlantRepository(session)
 
 
 def get_machine_repository(
