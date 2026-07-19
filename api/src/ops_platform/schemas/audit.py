@@ -14,3 +14,15 @@ class AuditLogEntryResponse(BaseModel):
     action: str
     diff: dict[str, Any]
     occurred_at: datetime
+
+
+class ActivityEntryResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    project_name: str
+    actor_id: UUID
+    entity_type: str
+    entity_id: UUID
+    action: str
+    diff: dict[str, Any]
+    occurred_at: datetime

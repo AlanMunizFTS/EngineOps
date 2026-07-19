@@ -119,3 +119,13 @@ class AuditLogEntry:
     action: str
     diff: dict[str, Any]
     occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityEntry:
+    """An AuditLogEntry plus its project's name - the read-model behind the
+    cross-project home dashboard feed (audit_log filtered by a single project_id is
+    the per-project timeline; unfiltered and joined with project name is this)."""
+
+    entry: AuditLogEntry
+    project_name: str

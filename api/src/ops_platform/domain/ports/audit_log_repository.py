@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from ops_platform.domain.entities import AuditLogEntry
+from ops_platform.domain.entities import ActivityEntry, AuditLogEntry
 
 
 class AuditLogRepository(ABC):
@@ -13,3 +13,9 @@ class AuditLogRepository(ABC):
 
     @abstractmethod
     async def list_for_project(self, project_id: UUID) -> list[AuditLogEntry]: ...
+
+    @abstractmethod
+    async def list_recent(self, limit: int) -> list[ActivityEntry]:
+        """Most recent entries across all projects, newest first - the home
+        dashboard feed."""
+        ...

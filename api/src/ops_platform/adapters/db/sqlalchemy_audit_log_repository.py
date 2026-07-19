@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models import AuditLogORM
-from ops_platform.domain.entities import AuditLogEntry
+from ops_platform.adapters.db.orm_models import AuditLogORM, ProjectORM
+from ops_platform.domain.entities import ActivityEntry, AuditLogEntry
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 
 
@@ -34,3 +34,15 @@ class SqlAlchemyAuditLogRepository(AuditLogRepository):
             .order_by(AuditLogORM.occurred_at)
         )
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def list_recent(self, limit: int) -> list[ActivityEntry]:
+        result = await self._session.execute(
+            select(AuditLogORM, ProjectORM.name)
+            .join(ProjectORM, ProjectORM.id == AuditLogORM.project_id)
+            .order_by(AuditLogORM.occurred_at.desc())
+            .limit(limit)
+        )
+        return [
+            ActivityEntry(entry=_to_entity(orm_entry), project_name=project_name)
+            for orm_entry, project_name in result.all()
+        ]
