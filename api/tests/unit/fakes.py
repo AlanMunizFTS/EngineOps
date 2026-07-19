@@ -180,8 +180,20 @@ class FakeAreaRepository(AreaRepository):
         raise ValueError(f"project_area {project_area_id} not found")
 
 
+def _resolve_phase_status(
+    area_repository: FakeAreaRepository, status_id: UUID | None
+) -> AreaStatus | None:
+    if status_id is None:
+        return None
+    return next(s for s in area_repository._statuses if s.id == status_id)
+
+
 class FakePlantRepository(PlantRepository):
-    def __init__(self) -> None:
+    """Takes the area repository fake to resolve phase_status_id -> AreaStatus,
+    mirroring the SQL adapter's join against area_statuses."""
+
+    def __init__(self, area_repository: FakeAreaRepository) -> None:
+        self._area_repository = area_repository
         self._plants: dict[UUID, Plant] = {}
 
     async def create(self, project_id: UUID, name: str, location: str | None) -> Plant:
@@ -201,9 +213,27 @@ class FakePlantRepository(PlantRepository):
     async def list_for_project(self, project_id: UUID) -> list[Plant]:
         return [p for p in self._plants.values() if p.project_id == project_id]
 
+    async def update_phase(self, plant_id: UUID, status_id: UUID | None) -> Plant:
+        plant = self._plants.get(plant_id)
+        if plant is None:
+            raise ValueError(f"plant {plant_id} not found")
+        updated = Plant(
+            id=plant.id,
+            project_id=plant.project_id,
+            name=plant.name,
+            location=plant.location,
+            created_at=plant.created_at,
+            phase_status=_resolve_phase_status(self._area_repository, status_id),
+        )
+        self._plants[plant_id] = updated
+        return updated
+
 
 class FakeMachineRepository(MachineRepository):
-    def __init__(self) -> None:
+    """Takes the area repository fake to resolve phase_status_id -> AreaStatus."""
+
+    def __init__(self, area_repository: FakeAreaRepository) -> None:
+        self._area_repository = area_repository
         self._machines: dict[UUID, Machine] = {}
 
     async def create(
@@ -226,9 +256,28 @@ class FakeMachineRepository(MachineRepository):
     async def list_for_plant(self, plant_id: UUID) -> list[Machine]:
         return [m for m in self._machines.values() if m.plant_id == plant_id]
 
+    async def update_phase(self, machine_id: UUID, status_id: UUID | None) -> Machine:
+        machine = self._machines.get(machine_id)
+        if machine is None:
+            raise ValueError(f"machine {machine_id} not found")
+        updated = Machine(
+            id=machine.id,
+            plant_id=machine.plant_id,
+            name=machine.name,
+            machine_type=machine.machine_type,
+            location=machine.location,
+            created_at=machine.created_at,
+            phase_status=_resolve_phase_status(self._area_repository, status_id),
+        )
+        self._machines[machine_id] = updated
+        return updated
+
 
 class FakeImplementationRepository(ImplementationRepository):
-    def __init__(self) -> None:
+    """Takes the area repository fake to resolve phase_status_id -> AreaStatus."""
+
+    def __init__(self, area_repository: FakeAreaRepository) -> None:
+        self._area_repository = area_repository
         self._implementations: dict[UUID, Implementation] = {}
 
     async def create(
@@ -260,6 +309,24 @@ class FakeImplementationRepository(ImplementationRepository):
             status=ImplementationStatus.SUPERSEDED,
             superseded_by=superseded_by,
             created_at=implementation.created_at,
+        )
+        self._implementations[implementation_id] = updated
+        return updated
+
+    async def update_phase(
+        self, implementation_id: UUID, status_id: UUID | None
+    ) -> Implementation:
+        implementation = self._implementations.get(implementation_id)
+        if implementation is None:
+            raise ValueError(f"implementation {implementation_id} not found")
+        updated = Implementation(
+            id=implementation.id,
+            machine_id=implementation.machine_id,
+            label=implementation.label,
+            status=implementation.status,
+            superseded_by=implementation.superseded_by,
+            created_at=implementation.created_at,
+            phase_status=_resolve_phase_status(self._area_repository, status_id),
         )
         self._implementations[implementation_id] = updated
         return updated

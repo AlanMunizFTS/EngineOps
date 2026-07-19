@@ -1,6 +1,6 @@
 import uuid
 
-from fakes import FakeAuditLog
+from fakes import FakeAreaRepository, FakeAuditLog
 from fastapi.testclient import TestClient
 
 
@@ -122,3 +122,64 @@ def test_supersede_implementation_updates_status_and_link(
     body = response.json()
     assert body["status"] == "superseded"
     assert body["superseded_by"] == new_impl["id"]
+
+
+def test_set_and_clear_machine_phase_override(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    fake_audit_log: FakeAuditLog,
+    fake_area_repository: FakeAreaRepository,
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
+    machine_id = client.post(
+        f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
+    ).json()["id"]
+    status_id = str(fake_area_repository._statuses[1].id)
+
+    response = client.patch(
+        f"/machines/{machine_id}/phase", json={"status_id": status_id}, headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json()["phase_status"]["id"] == status_id
+
+    changed_entry = next(
+        entry for entry in fake_audit_log.entries if entry.action == "machine.phase_changed"
+    )
+    assert str(changed_entry.project_id) == project_id
+    assert changed_entry.diff == {"from": None, "to": "Analyzing"}
+
+    cleared = client.patch(
+        f"/machines/{machine_id}/phase", json={"status_id": None}, headers=auth_headers
+    )
+    assert cleared.json()["phase_status"] is None
+
+
+def test_set_implementation_phase_override(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    fake_audit_log: FakeAuditLog,
+    fake_area_repository: FakeAreaRepository,
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
+    machine_id = client.post(
+        f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
+    ).json()["id"]
+    implementation_id = client.post(
+        f"/machines/{machine_id}/implementations", json={"label": "v1"}, headers=auth_headers
+    ).json()["id"]
+    status_id = str(fake_area_repository._statuses[0].id)
+
+    response = client.patch(
+        f"/implementations/{implementation_id}/phase",
+        json={"status_id": status_id},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["phase_status"]["id"] == status_id
+
+    changed_entry = next(
+        entry for entry in fake_audit_log.entries if entry.action == "implementation.phase_changed"
+    )
+    assert str(changed_entry.project_id) == project_id

@@ -1,6 +1,6 @@
 import uuid
 
-from fakes import FakeAuditLog
+from fakes import FakeAreaRepository, FakeAuditLog
 from fastapi.testclient import TestClient
 
 
@@ -55,3 +55,54 @@ def test_create_plant_records_audit_entry(
         entry for entry in fake_audit_log.entries if entry.action == "plant.created"
     )
     assert str(created_entry.project_id) == project_id
+
+
+def test_plant_has_no_phase_override_by_default(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    plant = client.post(
+        f"/projects/{project_id}/plants", json={"name": "Plant A"}, headers=auth_headers
+    ).json()
+    assert plant["phase_status"] is None
+
+
+def test_set_and_clear_plant_phase_override(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    fake_audit_log: FakeAuditLog,
+    fake_area_repository: FakeAreaRepository,
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    plant_id = client.post(
+        f"/projects/{project_id}/plants", json={"name": "Plant A"}, headers=auth_headers
+    ).json()["id"]
+    status_id = str(fake_area_repository._statuses[1].id)
+
+    response = client.patch(
+        f"/plants/{plant_id}/phase", json={"status_id": status_id}, headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json()["phase_status"]["id"] == status_id
+
+    changed_entry = next(
+        entry for entry in fake_audit_log.entries if entry.action == "plant.phase_changed"
+    )
+    assert changed_entry.diff == {"from": None, "to": "Analyzing"}
+
+    cleared = client.patch(
+        f"/plants/{plant_id}/phase", json={"status_id": None}, headers=auth_headers
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["phase_status"] is None
+
+
+def test_update_plant_phase_404_for_unknown_plant(
+    client: TestClient, auth_headers: dict[str, str], fake_area_repository: FakeAreaRepository
+) -> None:
+    response = client.patch(
+        f"/plants/{uuid.uuid4()}/phase",
+        json={"status_id": str(fake_area_repository._statuses[0].id)},
+        headers=auth_headers,
+    )
+    assert response.status_code == 404

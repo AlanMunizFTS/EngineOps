@@ -53,18 +53,20 @@ def fake_area_repository() -> FakeAreaRepository:
 
 
 @pytest.fixture
-def fake_plant_repository() -> FakePlantRepository:
-    return FakePlantRepository()
+def fake_plant_repository(fake_area_repository: FakeAreaRepository) -> FakePlantRepository:
+    return FakePlantRepository(fake_area_repository)
 
 
 @pytest.fixture
-def fake_machine_repository() -> FakeMachineRepository:
-    return FakeMachineRepository()
+def fake_machine_repository(fake_area_repository: FakeAreaRepository) -> FakeMachineRepository:
+    return FakeMachineRepository(fake_area_repository)
 
 
 @pytest.fixture
-def fake_implementation_repository() -> FakeImplementationRepository:
-    return FakeImplementationRepository()
+def fake_implementation_repository(
+    fake_area_repository: FakeAreaRepository,
+) -> FakeImplementationRepository:
+    return FakeImplementationRepository(fake_area_repository)
 
 
 @pytest.fixture
