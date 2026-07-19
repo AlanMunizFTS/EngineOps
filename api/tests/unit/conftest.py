@@ -15,6 +15,13 @@ from fakes import (
     FakeSession,
     FakeUserRepository,
 )
+from fakes_issues import (
+    FakeIssueCommentRepository,
+    FakeIssueRepository,
+    FakeKanbanRepository,
+    FakeLabelRepository,
+    FakeMilestoneRepository,
+)
 from fastapi.testclient import TestClient
 
 from ops_platform.api.deps import (
@@ -22,7 +29,12 @@ from ops_platform.api.deps import (
     get_audit_log_repository,
     get_audit_recorder,
     get_implementation_repository,
+    get_issue_comment_repository,
+    get_issue_repository,
+    get_kanban_repository,
+    get_label_repository,
     get_machine_repository,
+    get_milestone_repository,
     get_plant_repository,
     get_project_repository,
     get_user_repository,
@@ -75,6 +87,31 @@ def fake_audit_log(fake_project_repository: FakeProjectRepository) -> FakeAuditL
 
 
 @pytest.fixture
+def fake_label_repository() -> FakeLabelRepository:
+    return FakeLabelRepository()
+
+
+@pytest.fixture
+def fake_milestone_repository() -> FakeMilestoneRepository:
+    return FakeMilestoneRepository()
+
+
+@pytest.fixture
+def fake_issue_repository(fake_label_repository: FakeLabelRepository) -> FakeIssueRepository:
+    return FakeIssueRepository(fake_label_repository)
+
+
+@pytest.fixture
+def fake_issue_comment_repository() -> FakeIssueCommentRepository:
+    return FakeIssueCommentRepository()
+
+
+@pytest.fixture
+def fake_kanban_repository() -> FakeKanbanRepository:
+    return FakeKanbanRepository()
+
+
+@pytest.fixture
 def current_user(fake_user_repository: FakeUserRepository) -> User:
     user = User(
         id=uuid.uuid4(),
@@ -103,6 +140,11 @@ def client(
     fake_machine_repository: FakeMachineRepository,
     fake_implementation_repository: FakeImplementationRepository,
     fake_audit_log: FakeAuditLog,
+    fake_label_repository: FakeLabelRepository,
+    fake_milestone_repository: FakeMilestoneRepository,
+    fake_issue_repository: FakeIssueRepository,
+    fake_issue_comment_repository: FakeIssueCommentRepository,
+    fake_kanban_repository: FakeKanbanRepository,
 ) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_user_repository] = lambda: fake_user_repository
@@ -115,5 +157,10 @@ def client(
     )
     app.dependency_overrides[get_audit_recorder] = lambda: fake_audit_log
     app.dependency_overrides[get_audit_log_repository] = lambda: fake_audit_log
+    app.dependency_overrides[get_label_repository] = lambda: fake_label_repository
+    app.dependency_overrides[get_milestone_repository] = lambda: fake_milestone_repository
+    app.dependency_overrides[get_issue_repository] = lambda: fake_issue_repository
+    app.dependency_overrides[get_issue_comment_repository] = lambda: fake_issue_comment_repository
+    app.dependency_overrides[get_kanban_repository] = lambda: fake_kanban_repository
     app.dependency_overrides[get_db_session] = _fake_db_session
     return TestClient(app)
