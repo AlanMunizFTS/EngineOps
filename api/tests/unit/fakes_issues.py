@@ -121,16 +121,10 @@ class FakeIssueRepository(IssueRepository):
         created_by: UUID,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue:
         issue = Issue(
             id=uuid.uuid4(),
             project_id=project_id,
-            plant_id=plant_id,
-            machine_id=machine_id,
-            implementation_id=implementation_id,
             title=title,
             description=description,
             status=IssueStatus.BACKLOG,
@@ -180,9 +174,6 @@ class FakeIssueRepository(IssueRepository):
         issue_type: IssueType,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue:
         updated = replace(
             self._issues[issue_id],
@@ -192,9 +183,6 @@ class FakeIssueRepository(IssueRepository):
             issue_type=issue_type,
             milestone_id=milestone_id,
             assignee_id=assignee_id,
-            plant_id=plant_id,
-            machine_id=machine_id,
-            implementation_id=implementation_id,
         )
         self._issues[issue_id] = updated
         return updated

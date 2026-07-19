@@ -7,7 +7,6 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -68,17 +67,7 @@ class MilestoneORM(Base):
 
 
 class IssueORM(Base):
-    """`plant_id`/`machine_id`/`implementation_id` link to at most one hierarchy
-    level - see docs/architecture/adr/0004-issue-hierarchy-linking.md."""
-
     __tablename__ = "issues"
-    __table_args__ = (
-        CheckConstraint(
-            "(plant_id IS NOT NULL)::int + (machine_id IS NOT NULL)::int "
-            "+ (implementation_id IS NOT NULL)::int <= 1",
-            name="ck_issues_single_hierarchy_link",
-        ),
-    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -88,17 +77,6 @@ class IssueORM(Base):
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-    )
-    plant_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("plants.id", ondelete="SET NULL"), nullable=True
-    )
-    machine_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("machines.id", ondelete="SET NULL"), nullable=True
-    )
-    implementation_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("implementations.id", ondelete="SET NULL"),
-        nullable=True,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)

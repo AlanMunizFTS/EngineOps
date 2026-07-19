@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from ops_platform.domain.entities import ImplementationStatus, ProjectRole
+from ops_platform.domain.entities import ProjectRole
 
 
 class Base(DeclarativeBase):
@@ -150,89 +150,6 @@ class ProjectAreaORM(Base):
 
     area_type: Mapped[AreaTypeORM] = relationship(lazy="selectin")
     status: Mapped[AreaStatusORM] = relationship(lazy="selectin")
-
-
-class PlantORM(Base):
-    """A physical site a project's standard is deployed to - sits between
-    projects and machines: `standard (project) > plant > machine > implementation`."""
-
-    __tablename__ = "plants"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    project_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
-    )
-
-    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
-
-
-class MachineORM(Base):
-    __tablename__ = "machines"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    plant_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("plants.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    machine_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
-    )
-
-    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
-
-
-class ImplementationORM(Base):
-    __tablename__ = "implementations"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    machine_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("machines.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    label: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[ImplementationStatus] = mapped_column(
-        Enum(ImplementationStatus, name="implementation_status", values_callable=enum_values),
-        nullable=False,
-        default=ImplementationStatus.PLANNED,
-    )
-    superseded_by: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("implementations.id"), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
-    )
-
-    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
 
 
 class AuditLogORM(Base):

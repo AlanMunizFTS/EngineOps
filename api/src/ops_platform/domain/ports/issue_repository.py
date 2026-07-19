@@ -8,10 +8,7 @@ from ops_platform.domain.entities import Issue, IssuePriority, IssueStatus, Issu
 
 class IssueRepository(ABC):
     """Port for issue persistence, including its label associations (issue_labels
-    join table) and status transitions. `plant_id`/`machine_id`/`implementation_id`
-    are a flexible link into the hierarchy - at most one is set at a time, enforced
-    by the router before it reaches this port and backstopped by a DB CHECK
-    constraint (see docs/architecture/adr/0004-issue-hierarchy-linking.md)."""
+    join table) and status transitions."""
 
     @abstractmethod
     async def create(
@@ -25,9 +22,6 @@ class IssueRepository(ABC):
         created_by: UUID,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue: ...
 
     @abstractmethod
@@ -55,9 +49,6 @@ class IssueRepository(ABC):
         issue_type: IssueType,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue: ...
 
     @abstractmethod

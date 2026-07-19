@@ -24,9 +24,6 @@ def _to_entity(orm_issue: IssueORM) -> Issue:
     return Issue(
         id=orm_issue.id,
         project_id=orm_issue.project_id,
-        plant_id=orm_issue.plant_id,
-        machine_id=orm_issue.machine_id,
-        implementation_id=orm_issue.implementation_id,
         title=orm_issue.title,
         description=orm_issue.description,
         status=orm_issue.status,
@@ -62,9 +59,6 @@ class SqlAlchemyIssueRepository(IssueRepository):
         created_by: UUID,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue:
         orm_issue = IssueORM(
             project_id=project_id,
@@ -75,9 +69,6 @@ class SqlAlchemyIssueRepository(IssueRepository):
             created_by=created_by,
             milestone_id=milestone_id,
             assignee_id=assignee_id,
-            plant_id=plant_id,
-            machine_id=machine_id,
-            implementation_id=implementation_id,
         )
         self._session.add(orm_issue)
         await self._session.flush()
@@ -122,9 +113,6 @@ class SqlAlchemyIssueRepository(IssueRepository):
         issue_type: IssueType,
         milestone_id: UUID | None,
         assignee_id: UUID | None,
-        plant_id: UUID | None,
-        machine_id: UUID | None,
-        implementation_id: UUID | None,
     ) -> Issue:
         orm_issue = await self._get_or_raise(issue_id)
         orm_issue.title = title
@@ -133,9 +121,6 @@ class SqlAlchemyIssueRepository(IssueRepository):
         orm_issue.issue_type = issue_type
         orm_issue.milestone_id = milestone_id
         orm_issue.assignee_id = assignee_id
-        orm_issue.plant_id = plant_id
-        orm_issue.machine_id = machine_id
-        orm_issue.implementation_id = implementation_id
         await self._session.flush()
         await self._session.refresh(orm_issue, attribute_names=["labels"])
         return _to_entity(orm_issue)

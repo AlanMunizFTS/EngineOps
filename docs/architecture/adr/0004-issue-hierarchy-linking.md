@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted
+Partially superseded by [ADR 0005](0005-project-simplification.md): the
+hierarchy the issue-linking half of this decision depended on
+(plant/machine/implementation) no longer exists, so issues now link only to
+`project_id`. The fixed-kanban-columns half of this decision still stands.
 
 ## Context
 

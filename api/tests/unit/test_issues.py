@@ -8,13 +8,6 @@ def _create_project(client: TestClient, auth_headers: dict[str, str]) -> str:
     return response.json()["id"]
 
 
-def _create_plant(client: TestClient, auth_headers: dict[str, str], project_id: str) -> str:
-    response = client.post(
-        f"/projects/{project_id}/plants", json={"name": "Plant A"}, headers=auth_headers
-    )
-    return response.json()["id"]
-
-
 def test_create_issue_defaults_to_backlog(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
@@ -29,7 +22,6 @@ def test_create_issue_defaults_to_backlog(
     assert body["status"] == "backlog"
     assert body["priority"] == "medium"
     assert body["issue_type"] == "task"
-    assert body["plant_id"] is None
     assert body["labels"] == []
 
 
@@ -43,48 +35,6 @@ def test_create_issue_records_audit_entry(
 
     timeline = client.get(f"/projects/{project_id}/timeline", headers=auth_headers).json()
     assert any(entry["action"] == "issue.created" for entry in timeline)
-
-
-def test_create_issue_rejects_more_than_one_hierarchy_link(
-    client: TestClient, auth_headers: dict[str, str]
-) -> None:
-    project_id = _create_project(client, auth_headers)
-    plant_id = _create_plant(client, auth_headers, project_id)
-
-    response = client.post(
-        f"/projects/{project_id}/issues",
-        json={"title": "Ambiguous link", "plant_id": plant_id, "machine_id": str(uuid.uuid4())},
-        headers=auth_headers,
-    )
-    assert response.status_code == 422
-
-
-def test_create_issue_404_when_plant_belongs_to_another_project(
-    client: TestClient, auth_headers: dict[str, str]
-) -> None:
-    project_a = _create_project(client, auth_headers)
-    project_b = _create_project(client, auth_headers)
-    plant_in_b = _create_plant(client, auth_headers, project_b)
-
-    response = client.post(
-        f"/projects/{project_a}/issues",
-        json={"title": "Cross-project link", "plant_id": plant_in_b},
-        headers=auth_headers,
-    )
-    assert response.status_code == 404
-
-
-def test_create_issue_links_to_a_plant(client: TestClient, auth_headers: dict[str, str]) -> None:
-    project_id = _create_project(client, auth_headers)
-    plant_id = _create_plant(client, auth_headers, project_id)
-
-    response = client.post(
-        f"/projects/{project_id}/issues",
-        json={"title": "Plant-wide rollout issue", "plant_id": plant_id},
-        headers=auth_headers,
-    )
-    assert response.status_code == 201
-    assert response.json()["plant_id"] == plant_id
 
 
 def test_list_project_issues_filters_by_status(

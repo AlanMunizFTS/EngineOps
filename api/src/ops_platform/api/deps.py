@@ -10,20 +10,15 @@ from ops_platform.adapters.db.sqlalchemy_audit_log_repository import (
     SqlAlchemyAuditLogRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_audit_recorder import SqlAlchemyAuditRecorder
-from ops_platform.adapters.db.sqlalchemy_implementation_repository import (
-    SqlAlchemyImplementationRepository,
-)
 from ops_platform.adapters.db.sqlalchemy_issue_comment_repository import (
     SqlAlchemyIssueCommentRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_issue_repository import SqlAlchemyIssueRepository
 from ops_platform.adapters.db.sqlalchemy_kanban_repository import SqlAlchemyKanbanRepository
 from ops_platform.adapters.db.sqlalchemy_label_repository import SqlAlchemyLabelRepository
-from ops_platform.adapters.db.sqlalchemy_machine_repository import SqlAlchemyMachineRepository
 from ops_platform.adapters.db.sqlalchemy_milestone_repository import (
     SqlAlchemyMilestoneRepository,
 )
-from ops_platform.adapters.db.sqlalchemy_plant_repository import SqlAlchemyPlantRepository
 from ops_platform.adapters.db.sqlalchemy_project_repository import SqlAlchemyProjectRepository
 from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from ops_platform.core.security import decode_access_token
@@ -32,14 +27,11 @@ from ops_platform.domain.entities import User
 from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
-from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.issue_comment_repository import IssueCommentRepository
 from ops_platform.domain.ports.issue_repository import IssueRepository
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.label_repository import LabelRepository
-from ops_platform.domain.ports.machine_repository import MachineRepository
 from ops_platform.domain.ports.milestone_repository import MilestoneRepository
-from ops_platform.domain.ports.plant_repository import PlantRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
@@ -62,24 +54,6 @@ def get_area_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> AreaRepository:
     return SqlAlchemyAreaRepository(session)
-
-
-def get_plant_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> PlantRepository:
-    return SqlAlchemyPlantRepository(session)
-
-
-def get_machine_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> MachineRepository:
-    return SqlAlchemyMachineRepository(session)
-
-
-def get_implementation_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ImplementationRepository:
-    return SqlAlchemyImplementationRepository(session)
 
 
 def get_label_repository(

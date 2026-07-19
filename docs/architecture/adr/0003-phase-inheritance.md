@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0005](0005-project-simplification.md): Plant, Machine, and
+Implementation were removed entirely, so there is nothing left to inherit a
+phase override. Kept here for historical context only.
 
 ## Context
 
