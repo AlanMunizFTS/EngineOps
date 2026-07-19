@@ -4,8 +4,8 @@ type PhaseStatus = "done" | "current" | "next";
 
 const PHASES: { label: string; status: PhaseStatus }[] = [
   { label: "Phase 0 — Foundations", status: "done" },
-  { label: "Phase 1 — Projects, Machines, Implementations", status: "current" },
-  { label: "Phase 2 — Issues, Kanban & Timeline", status: "next" },
+  { label: "Phase 1 — Projects & Activity Feed", status: "done" },
+  { label: "Phase 2 — Issues, Kanban & Timeline", status: "current" },
 ];
 
 const DOT_STYLES: Record<PhaseStatus, string> = {

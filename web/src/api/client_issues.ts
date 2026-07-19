@@ -50,9 +50,6 @@ export interface KanbanBoardResponse {
 export interface IssueResponse {
   id: string;
   project_id: string;
-  plant_id: string | null;
-  machine_id: string | null;
-  implementation_id: string | null;
   title: string;
   description: string | null;
   status: IssueStatus;
@@ -73,12 +70,6 @@ export interface IssueCommentResponse {
   body: string;
   created_at: string;
   edited_at: string | null;
-}
-
-export interface IssueHierarchyLink {
-  plant_id?: string | null;
-  machine_id?: string | null;
-  implementation_id?: string | null;
 }
 
 export interface IssueFilters {
@@ -160,7 +151,7 @@ export function listProjectIssues(
   return authFetch(token, `/projects/${projectId}/issues${query ? `?${query}` : ""}`);
 }
 
-export interface IssueCreateFields extends IssueHierarchyLink {
+export interface IssueCreateFields {
   title: string;
   description?: string | null;
   issue_type?: IssueType;
@@ -184,7 +175,7 @@ export function getIssue(token: string, issueId: string): Promise<IssueResponse>
   return authFetch(token, `/issues/${issueId}`);
 }
 
-export interface IssueUpdateFields extends IssueHierarchyLink {
+export interface IssueUpdateFields {
   title: string;
   description?: string | null;
   issue_type: IssueType;

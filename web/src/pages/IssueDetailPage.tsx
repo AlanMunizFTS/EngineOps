@@ -78,9 +78,6 @@ export default function IssueDetailPage() {
         issue_type: issueType,
         milestone_id: issue.milestone_id,
         assignee_id: issue.assignee_id,
-        plant_id: issue.plant_id,
-        machine_id: issue.machine_id,
-        implementation_id: issue.implementation_id,
       });
       setIssue(updated);
     } catch (err) {

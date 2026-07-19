@@ -14,10 +14,9 @@ const EXPANDED_LIMIT = 30;
 const ACTION_LABELS: Record<string, string> = {
   "project.created": "created this project",
   "member.added": "added a member",
-  "area.status_changed": "updated an area status",
-  "machine.created": "added a machine",
-  "implementation.created": "added an implementation",
-  "implementation.superseded": "superseded an implementation",
+  "area.status_changed": "updated the project phase",
+  "issue.created": "opened an issue",
+  "issue.status_changed": "moved an issue",
 };
 
 function describeAction(action: string): string {

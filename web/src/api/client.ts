@@ -58,37 +58,6 @@ export interface ProjectAreaResponse {
   updated_at: string;
 }
 
-export type ImplementationStatus = "planned" | "active" | "superseded" | "decommissioned";
-
-export interface PlantResponse {
-  id: string;
-  project_id: string;
-  name: string;
-  location: string | null;
-  created_at: string;
-  phase_status: AreaStatusResponse | null;
-}
-
-export interface MachineResponse {
-  id: string;
-  plant_id: string;
-  name: string;
-  machine_type: string | null;
-  location: string | null;
-  created_at: string;
-  phase_status: AreaStatusResponse | null;
-}
-
-export interface ImplementationResponse {
-  id: string;
-  machine_id: string;
-  label: string;
-  status: ImplementationStatus;
-  superseded_by: string | null;
-  created_at: string;
-  phase_status: AreaStatusResponse | null;
-}
-
 export interface AuditLogEntryResponse {
   id: string;
   project_id: string;
@@ -213,95 +182,6 @@ export function getProjectTimeline(
 
 export function getRecentActivity(token: string, limit = 20): Promise<ActivityEntryResponse[]> {
   return authFetch(token, `/activity?limit=${limit}`);
-}
-
-export function listProjectPlants(token: string, projectId: string): Promise<PlantResponse[]> {
-  return authFetch(token, `/projects/${projectId}/plants`);
-}
-
-export function createPlant(
-  token: string,
-  projectId: string,
-  name: string,
-  location: string,
-): Promise<PlantResponse> {
-  return authFetch(token, `/projects/${projectId}/plants`, {
-    method: "POST",
-    body: JSON.stringify({ name, location: location || null }),
-  });
-}
-
-export function listPlantMachines(token: string, plantId: string): Promise<MachineResponse[]> {
-  return authFetch(token, `/plants/${plantId}/machines`);
-}
-
-export function updatePlantPhase(
-  token: string,
-  plantId: string,
-  statusId: string | null,
-): Promise<PlantResponse> {
-  return authFetch(token, `/plants/${plantId}/phase`, {
-    method: "PATCH",
-    body: JSON.stringify({ status_id: statusId }),
-  });
-}
-
-export function updateMachinePhase(
-  token: string,
-  machineId: string,
-  statusId: string | null,
-): Promise<MachineResponse> {
-  return authFetch(token, `/machines/${machineId}/phase`, {
-    method: "PATCH",
-    body: JSON.stringify({ status_id: statusId }),
-  });
-}
-
-export function updateImplementationPhase(
-  token: string,
-  implementationId: string,
-  statusId: string | null,
-): Promise<ImplementationResponse> {
-  return authFetch(token, `/implementations/${implementationId}/phase`, {
-    method: "PATCH",
-    body: JSON.stringify({ status_id: statusId }),
-  });
-}
-
-export function createMachine(
-  token: string,
-  plantId: string,
-  name: string,
-  machineType: string,
-  location: string,
-): Promise<MachineResponse> {
-  return authFetch(token, `/plants/${plantId}/machines`, {
-    method: "POST",
-    body: JSON.stringify({
-      name,
-      machine_type: machineType || null,
-      location: location || null,
-    }),
-  });
-}
-
-export function listMachineImplementations(
-  token: string,
-  machineId: string,
-): Promise<ImplementationResponse[]> {
-  return authFetch(token, `/machines/${machineId}/implementations`);
-}
-
-export function createImplementation(
-  token: string,
-  machineId: string,
-  label: string,
-  status: ImplementationStatus,
-): Promise<ImplementationResponse> {
-  return authFetch(token, `/machines/${machineId}/implementations`, {
-    method: "POST",
-    body: JSON.stringify({ label, status }),
-  });
 }
 
 // Phase 2 (labels, milestones, issues, kanban) lives in ./client_issues.ts to
