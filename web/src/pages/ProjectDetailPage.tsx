@@ -214,7 +214,7 @@ export default function ProjectDetailPage() {
 
   return (
     <AppShell breadcrumb={project.name}>
-      <ProjectTabs />
+      <ProjectTabs projectId={project.id} />
 
       <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
