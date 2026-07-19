@@ -9,6 +9,7 @@ from ops_platform.api.deps import (
     get_audit_log_repository,
     get_audit_recorder,
     get_current_user,
+    get_kanban_repository,
     get_project_repository,
 )
 from ops_platform.db.session import get_db_session
@@ -24,6 +25,7 @@ from ops_platform.domain.entities import (
 from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.schemas.audit import AuditLogEntryResponse
 from ops_platform.schemas.projects import (
@@ -97,6 +99,7 @@ async def create_project(
     current_user: Annotated[User, Depends(get_current_user)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
     area_repo: Annotated[AreaRepository, Depends(get_area_repository)],
+    kanban_repo: Annotated[KanbanRepository, Depends(get_kanban_repository)],
     audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ProjectResponse:
@@ -105,6 +108,7 @@ async def create_project(
     )
     await project_repo.add_member(project.id, current_user.id, ProjectRole.OWNER)
     await area_repo.create_default_areas(project.id)
+    await kanban_repo.create_default_board(project.id)
     await audit.record(
         project_id=project.id,
         actor_id=current_user.id,
