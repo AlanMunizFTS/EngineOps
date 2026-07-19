@@ -120,7 +120,7 @@ async function parseOrThrow<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function authFetch<T>(
+export async function authFetch<T>(
   token: string,
   path: string,
   options: RequestInit = {},
@@ -303,3 +303,6 @@ export function createImplementation(
     body: JSON.stringify({ label, status }),
   });
 }
+
+// Phase 2 (labels, milestones, issues, kanban) lives in ./client_issues.ts to
+// keep this module under the ~400-line limit.
