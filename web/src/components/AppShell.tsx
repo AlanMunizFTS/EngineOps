@@ -22,11 +22,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [token]);
 
   return (
-    <div className="flex min-h-screen bg-ink-950">
-      {isSidebarOpen && <ProjectSidebar projects={projects} activeProjectId={activeProjectId} />}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar projects={projects} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+    <div className="flex min-h-screen flex-col bg-ink-950">
+      <TopBar projects={projects} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
+      <div className="flex min-h-0 flex-1">
+        {isSidebarOpen && <ProjectSidebar projects={projects} activeProjectId={activeProjectId} />}
+        <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
