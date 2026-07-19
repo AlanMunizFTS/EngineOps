@@ -24,7 +24,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import ProjectAbout from "../components/ProjectAbout";
-import ProjectAreaTiles from "../components/ProjectAreaTiles";
+import ProjectPhasePipeline from "../components/ProjectPhasePipeline";
 import ProjectPlants, { type PlantWithMachines } from "../components/ProjectPlants";
 import ProjectTabs from "../components/ProjectTabs";
 import ProjectTimeline from "../components/ProjectTimeline";
@@ -34,8 +34,8 @@ export default function ProjectDetailPage() {
   const { token } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
-  const [areas, setAreas] = useState<ProjectAreaResponse[]>([]);
-  const [statusOptions, setStatusOptions] = useState<Record<string, AreaStatusResponse[]>>({});
+  const [phase, setPhase] = useState<ProjectAreaResponse | undefined>(undefined);
+  const [phaseStatuses, setPhaseStatuses] = useState<AreaStatusResponse[]>([]);
   const [plants, setPlants] = useState<PlantWithMachines[]>([]);
   const [timeline, setTimeline] = useState<AuditLogEntryResponse[]>([]);
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
@@ -58,17 +58,14 @@ export default function ProjectDetailPage() {
         listProjectMembers(authToken, id),
       ]);
       setProject(projectData);
-      setAreas(areaData);
       setTimeline(timelineData);
       setMembers(memberData);
 
-      const statusEntries = await Promise.all(
-        areaData.map(
-          async (area) =>
-            [area.area_type.id, await listAreaStatuses(authToken, area.area_type.id)] as const,
-        ),
+      const currentPhase = areaData[0];
+      setPhase(currentPhase);
+      setPhaseStatuses(
+        currentPhase ? await listAreaStatuses(authToken, currentPhase.area_type.id) : [],
       );
-      setStatusOptions(Object.fromEntries(statusEntries));
 
       const plantsWithMachines = await Promise.all(
         plantData.map(async (plant) => {
@@ -88,10 +85,10 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleStatusChange(area: ProjectAreaResponse, statusId: string) {
-    if (!token || !projectId) return;
+  async function handleStatusChange(statusId: string) {
+    if (!token || !projectId || !phase) return;
     try {
-      await updateProjectAreaStatus(token, projectId, area.id, statusId);
+      await updateProjectAreaStatus(token, projectId, phase.id, statusId);
       await loadAll(token, projectId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
@@ -155,9 +152,9 @@ export default function ProjectDetailPage() {
         <div className="min-w-0 flex-1 space-y-4">
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <ProjectAreaTiles
-            areas={areas}
-            statusOptions={statusOptions}
+          <ProjectPhasePipeline
+            phase={phase}
+            statuses={phaseStatuses}
             onStatusChange={handleStatusChange}
           />
 
