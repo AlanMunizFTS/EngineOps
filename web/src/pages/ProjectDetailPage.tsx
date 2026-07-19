@@ -26,6 +26,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
+import ImplementationPhasePanel from "../components/ImplementationPhasePanel";
 import PhaseToolsPanel from "../components/PhaseToolsPanel";
 import ProjectAbout from "../components/ProjectAbout";
 import ProjectPlants, { type PlantWithMachines } from "../components/ProjectPlants";
@@ -34,7 +35,7 @@ import ProjectTimeline from "../components/ProjectTimeline";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { token } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
@@ -124,6 +125,10 @@ export default function ProjectDetailPage() {
     }
   }
 
+  function handleSelectImplementation(implementationId: string) {
+    setSearchParams({ implementation: implementationId });
+  }
+
   async function handleAddImplementation(
     machineId: string,
     label: string,
@@ -180,6 +185,33 @@ export default function ProjectDetailPage() {
   const viewingPhaseId = searchParams.get("phase");
   const viewingPhase = phaseStatuses.find((status) => status.id === viewingPhaseId);
 
+  const viewingImplementationId = searchParams.get("implementation");
+  let implementationContext:
+    | {
+        breadcrumb: string;
+        implementation: PlantWithMachines["machines"][number]["implementations"][number];
+        effectivePhaseId: string | undefined;
+      }
+    | undefined;
+  if (viewingImplementationId) {
+    for (const plant of plants) {
+      for (const machine of plant.machines) {
+        const implementation = machine.implementations.find(
+          (item) => item.id === viewingImplementationId,
+        );
+        if (implementation) {
+          const plantPhaseId = plant.phase_status?.id ?? phase?.status.id;
+          const machinePhaseId = machine.phase_status?.id ?? plantPhaseId;
+          implementationContext = {
+            breadcrumb: `${plant.name} / ${machine.name}`,
+            implementation,
+            effectivePhaseId: implementation.phase_status?.id ?? machinePhaseId,
+          };
+        }
+      }
+    }
+  }
+
   return (
     <AppShell breadcrumb={project.name}>
       <ProjectTabs />
@@ -188,7 +220,22 @@ export default function ProjectDetailPage() {
         <div className="min-w-0 flex-1 space-y-4">
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          {viewingPhase ? (
+          {implementationContext ? (
+            <ImplementationPhasePanel
+              breadcrumb={implementationContext.breadcrumb}
+              implementationLabel={implementationContext.implementation.label}
+              effectivePhaseId={implementationContext.effectivePhaseId}
+              hasOverride={Boolean(implementationContext.implementation.phase_status)}
+              statuses={phaseStatuses}
+              onSetPhase={(statusId) =>
+                handleSetImplementationPhase(implementationContext!.implementation.id, statusId)
+              }
+              onClearOverride={() =>
+                handleSetImplementationPhase(implementationContext!.implementation.id, null)
+              }
+              onClose={() => setSearchParams({})}
+            />
+          ) : viewingPhase ? (
             <PhaseToolsPanel
               phaseStatus={viewingPhase}
               isCurrentProjectPhase={viewingPhase.id === phase?.status.id}
@@ -212,6 +259,7 @@ export default function ProjectDetailPage() {
                 onAddPlant={handleAddPlant}
                 onAddMachine={handleAddMachine}
                 onAddImplementation={handleAddImplementation}
+                onSelectImplementation={handleSelectImplementation}
               />
 
               <div id="timeline">

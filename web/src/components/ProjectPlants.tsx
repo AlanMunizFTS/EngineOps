@@ -27,6 +27,7 @@ interface ProjectPlantsProps {
     label: string,
     status: ImplementationStatus,
   ) => void;
+  onSelectImplementation: (implementationId: string) => void;
 }
 
 const STATUS_STYLES: Record<ImplementationStatus, string> = {
@@ -43,6 +44,7 @@ export default function ProjectPlants({
   onAddPlant,
   onAddMachine,
   onAddImplementation,
+  onSelectImplementation,
 }: ProjectPlantsProps) {
   const [showForm, setShowForm] = useState(false);
 
@@ -90,6 +92,7 @@ export default function ProjectPlants({
             plant={plant}
             onAddMachine={onAddMachine}
             onAddImplementation={onAddImplementation}
+            onSelectImplementation={onSelectImplementation}
           />
         ))}
         {plants.length === 0 && (
@@ -143,6 +146,7 @@ function PlantRow({
   plant,
   onAddMachine,
   onAddImplementation,
+  onSelectImplementation,
 }: {
   plant: PlantWithMachines;
   onAddMachine: (plantId: string, name: string, machineType: string, location: string) => void;
@@ -151,6 +155,7 @@ function PlantRow({
     label: string,
     status: ImplementationStatus,
   ) => void;
+  onSelectImplementation: (implementationId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showMachineForm, setShowMachineForm] = useState(false);
@@ -203,6 +208,7 @@ function PlantRow({
                 key={machine.id}
                 machine={machine}
                 onAddImplementation={onAddImplementation}
+                onSelectImplementation={onSelectImplementation}
               />
             ))}
             {machineCount === 0 && (
@@ -270,6 +276,7 @@ function NewMachineForm({
 function MachineRow({
   machine,
   onAddImplementation,
+  onSelectImplementation,
 }: {
   machine: MachineWithImplementations;
   onAddImplementation: (
@@ -277,6 +284,7 @@ function MachineRow({
     label: string,
     status: ImplementationStatus,
   ) => void;
+  onSelectImplementation: (implementationId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [label, setLabel] = useState("");
@@ -311,9 +319,15 @@ function MachineRow({
           <ul className="space-y-1.5">
             {machine.implementations.map((impl) => (
               <li key={impl.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">{impl.label}</span>
+                <button
+                  onClick={() => onSelectImplementation(impl.id)}
+                  className="truncate text-slate-300 transition-colors hover:text-ember-400"
+                  title="View phases for this implementation"
+                >
+                  {impl.label}
+                </button>
                 <span
-                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
+                  className={`flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
                 >
                   {impl.status}
                 </span>
