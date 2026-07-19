@@ -17,6 +17,7 @@ from ops_platform.domain.entities import (
     Implementation,
     ImplementationStatus,
     Machine,
+    Plant,
     Project,
     ProjectArea,
     ProjectMember,
@@ -29,6 +30,7 @@ from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.machine_repository import MachineRepository
+from ops_platform.domain.ports.plant_repository import PlantRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
@@ -178,16 +180,38 @@ class FakeAreaRepository(AreaRepository):
         raise ValueError(f"project_area {project_area_id} not found")
 
 
+class FakePlantRepository(PlantRepository):
+    def __init__(self) -> None:
+        self._plants: dict[UUID, Plant] = {}
+
+    async def create(self, project_id: UUID, name: str, location: str | None) -> Plant:
+        plant = Plant(
+            id=uuid.uuid4(),
+            project_id=project_id,
+            name=name,
+            location=location,
+            created_at=datetime.now(UTC),
+        )
+        self._plants[plant.id] = plant
+        return plant
+
+    async def get(self, plant_id: UUID) -> Plant | None:
+        return self._plants.get(plant_id)
+
+    async def list_for_project(self, project_id: UUID) -> list[Plant]:
+        return [p for p in self._plants.values() if p.project_id == project_id]
+
+
 class FakeMachineRepository(MachineRepository):
     def __init__(self) -> None:
         self._machines: dict[UUID, Machine] = {}
 
     async def create(
-        self, project_id: UUID, name: str, machine_type: str | None, location: str | None
+        self, plant_id: UUID, name: str, machine_type: str | None, location: str | None
     ) -> Machine:
         machine = Machine(
             id=uuid.uuid4(),
-            project_id=project_id,
+            plant_id=plant_id,
             name=name,
             machine_type=machine_type,
             location=location,
@@ -199,8 +223,8 @@ class FakeMachineRepository(MachineRepository):
     async def get(self, machine_id: UUID) -> Machine | None:
         return self._machines.get(machine_id)
 
-    async def list_for_project(self, project_id: UUID) -> list[Machine]:
-        return [m for m in self._machines.values() if m.project_id == project_id]
+    async def list_for_plant(self, plant_id: UUID) -> list[Machine]:
+        return [m for m in self._machines.values() if m.plant_id == plant_id]
 
 
 class FakeImplementationRepository(ImplementationRepository):

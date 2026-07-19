@@ -9,37 +9,46 @@ def _create_project(client: TestClient, auth_headers: dict[str, str]) -> str:
     return response.json()["id"]
 
 
+def _create_plant(client: TestClient, auth_headers: dict[str, str], project_id: str) -> str:
+    response = client.post(
+        f"/projects/{project_id}/plants", json={"name": "Plant A"}, headers=auth_headers
+    )
+    return response.json()["id"]
+
+
 def test_create_machine(client: TestClient, auth_headers: dict[str, str]) -> None:
     project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
 
     response = client.post(
-        f"/projects/{project_id}/machines",
+        f"/plants/{plant_id}/machines",
         json={"name": "Cell 4A Robot", "machine_type": "robot cell", "location": "Line 4"},
         headers=auth_headers,
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["project_id"] == project_id
+    assert body["plant_id"] == plant_id
     assert body["name"] == "Cell 4A Robot"
 
 
-def test_create_machine_404_for_unknown_project(
+def test_create_machine_404_for_unknown_plant(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     response = client.post(
-        f"/projects/{uuid.uuid4()}/machines", json={"name": "Cell X"}, headers=auth_headers
+        f"/plants/{uuid.uuid4()}/machines", json={"name": "Cell X"}, headers=auth_headers
     )
     assert response.status_code == 404
 
 
-def test_list_project_machines_returns_all_attached(
+def test_list_plant_machines_returns_all_attached(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     project_id = _create_project(client, auth_headers)
-    client.post(f"/projects/{project_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers)
-    client.post(f"/projects/{project_id}/machines", json={"name": "Cell 4B"}, headers=auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
+    client.post(f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers)
+    client.post(f"/plants/{plant_id}/machines", json={"name": "Cell 4B"}, headers=auth_headers)
 
-    machines = client.get(f"/projects/{project_id}/machines", headers=auth_headers).json()
+    machines = client.get(f"/plants/{plant_id}/machines", headers=auth_headers).json()
     assert len(machines) == 2
     assert {m["name"] for m in machines} == {"Cell 4A", "Cell 4B"}
 
@@ -48,8 +57,9 @@ def test_create_implementation_records_audit_with_project_id(
     client: TestClient, auth_headers: dict[str, str], fake_audit_log: FakeAuditLog
 ) -> None:
     project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
     machine_id = client.post(
-        f"/projects/{project_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
+        f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
     ).json()["id"]
 
     response = client.post(
@@ -70,8 +80,9 @@ def test_list_machine_implementations_returns_all_attached(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
     machine_id = client.post(
-        f"/projects/{project_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
+        f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
     ).json()["id"]
     client.post(
         f"/machines/{machine_id}/implementations", json={"label": "v1"}, headers=auth_headers
@@ -91,8 +102,9 @@ def test_supersede_implementation_updates_status_and_link(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     project_id = _create_project(client, auth_headers)
+    plant_id = _create_plant(client, auth_headers, project_id)
     machine_id = client.post(
-        f"/projects/{project_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
+        f"/plants/{plant_id}/machines", json={"name": "Cell 4A"}, headers=auth_headers
     ).json()["id"]
     old_impl = client.post(
         f"/machines/{machine_id}/implementations", json={"label": "v1"}, headers=auth_headers

@@ -10,6 +10,7 @@ from fakes import (
     FakeAuditLog,
     FakeImplementationRepository,
     FakeMachineRepository,
+    FakePlantRepository,
     FakeProjectRepository,
     FakeSession,
     FakeUserRepository,
@@ -22,6 +23,7 @@ from ops_platform.api.deps import (
     get_audit_recorder,
     get_implementation_repository,
     get_machine_repository,
+    get_plant_repository,
     get_project_repository,
     get_user_repository,
 )
@@ -48,6 +50,11 @@ def fake_project_repository(fake_user_repository: FakeUserRepository) -> FakePro
 @pytest.fixture
 def fake_area_repository() -> FakeAreaRepository:
     return FakeAreaRepository()
+
+
+@pytest.fixture
+def fake_plant_repository() -> FakePlantRepository:
+    return FakePlantRepository()
 
 
 @pytest.fixture
@@ -90,6 +97,7 @@ def client(
     fake_user_repository: FakeUserRepository,
     fake_project_repository: FakeProjectRepository,
     fake_area_repository: FakeAreaRepository,
+    fake_plant_repository: FakePlantRepository,
     fake_machine_repository: FakeMachineRepository,
     fake_implementation_repository: FakeImplementationRepository,
     fake_audit_log: FakeAuditLog,
@@ -98,6 +106,7 @@ def client(
     app.dependency_overrides[get_user_repository] = lambda: fake_user_repository
     app.dependency_overrides[get_project_repository] = lambda: fake_project_repository
     app.dependency_overrides[get_area_repository] = lambda: fake_area_repository
+    app.dependency_overrides[get_plant_repository] = lambda: fake_plant_repository
     app.dependency_overrides[get_machine_repository] = lambda: fake_machine_repository
     app.dependency_overrides[get_implementation_repository] = (
         lambda: fake_implementation_repository
