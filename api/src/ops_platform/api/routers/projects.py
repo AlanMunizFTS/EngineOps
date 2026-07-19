@@ -17,6 +17,7 @@ from ops_platform.domain.entities import (
     Project,
     ProjectArea,
     ProjectMember,
+    ProjectMemberDetail,
     ProjectRole,
     User,
 )
@@ -32,6 +33,7 @@ from ops_platform.schemas.projects import (
     ProjectAreaStatusUpdateRequest,
     ProjectCreateRequest,
     ProjectMemberAddRequest,
+    ProjectMemberDetailResponse,
     ProjectMemberResponse,
     ProjectResponse,
 )
@@ -55,6 +57,17 @@ def _member_response(member: ProjectMember) -> ProjectMemberResponse:
         user_id=member.user_id,
         project_role=member.project_role,
         added_at=member.added_at,
+    )
+
+
+def _member_detail_response(detail: ProjectMemberDetail) -> ProjectMemberDetailResponse:
+    return ProjectMemberDetailResponse(
+        project_id=detail.member.project_id,
+        user_id=detail.member.user_id,
+        project_role=detail.member.project_role,
+        added_at=detail.member.added_at,
+        email=detail.email,
+        full_name=detail.full_name,
     )
 
 
@@ -148,14 +161,14 @@ async def add_project_member(
     return _member_response(member)
 
 
-@router.get("/{project_id}/members", response_model=list[ProjectMemberResponse])
+@router.get("/{project_id}/members", response_model=list[ProjectMemberDetailResponse])
 async def list_project_members(
     project_id: UUID,
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-) -> list[ProjectMemberResponse]:
+) -> list[ProjectMemberDetailResponse]:
     await _get_project_or_404(project_repo, project_id)
-    members = await project_repo.list_members(project_id)
-    return [_member_response(member) for member in members]
+    members = await project_repo.list_members_with_users(project_id)
+    return [_member_detail_response(detail) for detail in members]
 
 
 def _area_response(area: ProjectArea) -> ProjectAreaResponse:

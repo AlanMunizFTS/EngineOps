@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models import ProjectMemberORM, ProjectORM
-from ops_platform.domain.entities import Project, ProjectMember, ProjectRole
+from ops_platform.adapters.db.orm_models import ProjectMemberORM, ProjectORM, UserORM
+from ops_platform.domain.entities import Project, ProjectMember, ProjectMemberDetail, ProjectRole
 from ops_platform.domain.ports.project_repository import ProjectRepository
 
 
@@ -69,3 +69,14 @@ class SqlAlchemyProjectRepository(ProjectRepository):
             select(ProjectMemberORM).where(ProjectMemberORM.project_id == project_id)
         )
         return [_to_member(row) for row in result.scalars().all()]
+
+    async def list_members_with_users(self, project_id: UUID) -> list[ProjectMemberDetail]:
+        result = await self._session.execute(
+            select(ProjectMemberORM, UserORM.email, UserORM.full_name)
+            .join(UserORM, UserORM.id == ProjectMemberORM.user_id)
+            .where(ProjectMemberORM.project_id == project_id)
+        )
+        return [
+            ProjectMemberDetail(member=_to_member(orm_member), email=email, full_name=full_name)
+            for orm_member, email, full_name in result.all()
+        ]

@@ -58,6 +58,16 @@ class ProjectMember:
 
 
 @dataclass(frozen=True, slots=True)
+class ProjectMemberDetail:
+    """A ProjectMember plus the user's email/full_name - the read-model behind
+    the project detail page's Contributors panel."""
+
+    member: ProjectMember
+    email: str
+    full_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class AreaType:
     id: UUID
     name: str

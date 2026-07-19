@@ -12,6 +12,7 @@ from fakes import (
     FakeMachineRepository,
     FakeProjectRepository,
     FakeSession,
+    FakeUserRepository,
 )
 from fastapi.testclient import TestClient
 
@@ -27,28 +28,7 @@ from ops_platform.api.deps import (
 from ops_platform.core.security import create_access_token, hash_password
 from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import User
-from ops_platform.domain.ports.user_repository import UserRepository
 from ops_platform.main import create_app
-
-
-class FakeUserRepository(UserRepository):
-    def __init__(self) -> None:
-        self._users: dict[str, User] = {}
-
-    async def get_by_email(self, email: str) -> User | None:
-        return self._users.get(email)
-
-    async def create(self, email: str, hashed_password: str, full_name: str) -> User:
-        user = User(
-            id=uuid.uuid4(),
-            email=email,
-            hashed_password=hashed_password,
-            full_name=full_name,
-            is_active=True,
-            created_at=datetime.now(UTC),
-        )
-        self._users[email] = user
-        return user
 
 
 async def _fake_db_session() -> AsyncIterator[FakeSession]:
@@ -61,8 +41,8 @@ def fake_user_repository() -> FakeUserRepository:
 
 
 @pytest.fixture
-def fake_project_repository() -> FakeProjectRepository:
-    return FakeProjectRepository()
+def fake_project_repository(fake_user_repository: FakeUserRepository) -> FakeProjectRepository:
+    return FakeProjectRepository(fake_user_repository)
 
 
 @pytest.fixture

@@ -20,7 +20,9 @@ from ops_platform.domain.entities import (
     Project,
     ProjectArea,
     ProjectMember,
+    ProjectMemberDetail,
     ProjectRole,
+    User,
 )
 from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
@@ -28,6 +30,7 @@ from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.machine_repository import MachineRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
+from ops_platform.domain.ports.user_repository import UserRepository
 
 
 class FakeSession:
@@ -37,8 +40,32 @@ class FakeSession:
         return None
 
 
-class FakeProjectRepository(ProjectRepository):
+class FakeUserRepository(UserRepository):
     def __init__(self) -> None:
+        self._users: dict[str, User] = {}
+
+    async def get_by_email(self, email: str) -> User | None:
+        return self._users.get(email)
+
+    async def create(self, email: str, hashed_password: str, full_name: str) -> User:
+        user = User(
+            id=uuid.uuid4(),
+            email=email,
+            hashed_password=hashed_password,
+            full_name=full_name,
+            is_active=True,
+            created_at=datetime.now(UTC),
+        )
+        self._users[email] = user
+        return user
+
+
+class FakeProjectRepository(ProjectRepository):
+    """Takes the user repository fake to resolve email/full_name for
+    list_members_with_users, mirroring the SQL adapter's join against users."""
+
+    def __init__(self, user_repository: FakeUserRepository) -> None:
+        self._user_repository = user_repository
         self._projects: dict[UUID, Project] = {}
         self._members: dict[UUID, list[ProjectMember]] = {}
 
@@ -74,6 +101,22 @@ class FakeProjectRepository(ProjectRepository):
 
     async def list_members(self, project_id: UUID) -> list[ProjectMember]:
         return self._members.get(project_id, [])
+
+    async def list_members_with_users(self, project_id: UUID) -> list[ProjectMemberDetail]:
+        details = []
+        for member in self._members.get(project_id, []):
+            user = next(
+                (u for u in self._user_repository._users.values() if u.id == member.user_id),
+                None,
+            )
+            details.append(
+                ProjectMemberDetail(
+                    member=member,
+                    email=user.email if user else "",
+                    full_name=user.full_name if user else "",
+                )
+            )
+        return details
 
 
 class FakeAreaRepository(AreaRepository):

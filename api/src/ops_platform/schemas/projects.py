@@ -31,6 +31,15 @@ class ProjectMemberResponse(BaseModel):
     added_at: datetime
 
 
+class ProjectMemberDetailResponse(BaseModel):
+    project_id: UUID
+    user_id: UUID
+    project_role: ProjectRole
+    added_at: datetime
+    email: str
+    full_name: str
+
+
 class AreaTypeResponse(BaseModel):
     id: UUID
     name: str

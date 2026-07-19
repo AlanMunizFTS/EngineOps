@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from ops_platform.domain.entities import Project, ProjectMember, ProjectRole
+from ops_platform.domain.entities import Project, ProjectMember, ProjectMemberDetail, ProjectRole
 
 
 class ProjectRepository(ABC):
@@ -25,3 +25,9 @@ class ProjectRepository(ABC):
 
     @abstractmethod
     async def list_members(self, project_id: UUID) -> list[ProjectMember]: ...
+
+    @abstractmethod
+    async def list_members_with_users(self, project_id: UUID) -> list[ProjectMemberDetail]:
+        """Same as list_members, joined with each member's email/full_name -
+        the Contributors panel needs a human-readable name, not a bare user_id."""
+        ...
