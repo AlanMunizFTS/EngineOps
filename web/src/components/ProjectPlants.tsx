@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import type {
-  AreaStatusResponse,
   ImplementationResponse,
   ImplementationStatus,
   MachineResponse,
@@ -19,7 +18,6 @@ export interface PlantWithMachines extends PlantResponse {
 
 interface ProjectPlantsProps {
   plants: PlantWithMachines[];
-  phaseStatuses: AreaStatusResponse[];
   latestActivityLabel?: string;
   latestActivityAt?: string;
   onAddPlant: (name: string, location: string) => void;
@@ -29,9 +27,6 @@ interface ProjectPlantsProps {
     label: string,
     status: ImplementationStatus,
   ) => void;
-  onSetPlantPhase: (plantId: string, statusId: string | null) => void;
-  onSetMachinePhase: (machineId: string, statusId: string | null) => void;
-  onSetImplementationPhase: (implementationId: string, statusId: string | null) => void;
 }
 
 const STATUS_STYLES: Record<ImplementationStatus, string> = {
@@ -41,55 +36,13 @@ const STATUS_STYLES: Record<ImplementationStatus, string> = {
   decommissioned: "bg-slate-600/20 text-slate-500",
 };
 
-function DeviationBadge({ phaseName }: { phaseName: string }) {
-  return (
-    <span
-      title={`Phase overridden: ${phaseName}`}
-      className="flex-shrink-0 rounded bg-amber-500/20 px-1 text-[10px] font-bold leading-4 text-amber-400"
-    >
-      M
-    </span>
-  );
-}
-
-function PhaseSelect({
-  statuses,
-  value,
-  onChange,
-}: {
-  statuses: AreaStatusResponse[];
-  value: string | null;
-  onChange: (statusId: string | null) => void;
-}) {
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || null)}
-      onClick={(e) => e.stopPropagation()}
-      title="Phase override - inherits from parent when set to (Inherit)"
-      className="flex-shrink-0 rounded border border-ink-700 bg-ink-800 px-1.5 py-0.5 text-xs text-slate-300 outline-none focus:border-ember-500"
-    >
-      <option value="">(Inherit)</option>
-      {statuses.map((status) => (
-        <option key={status.id} value={status.id}>
-          {status.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 export default function ProjectPlants({
   plants,
-  phaseStatuses,
   latestActivityLabel,
   latestActivityAt,
   onAddPlant,
   onAddMachine,
   onAddImplementation,
-  onSetPlantPhase,
-  onSetMachinePhase,
-  onSetImplementationPhase,
 }: ProjectPlantsProps) {
   const [showForm, setShowForm] = useState(false);
 
@@ -135,12 +88,8 @@ export default function ProjectPlants({
           <PlantRow
             key={plant.id}
             plant={plant}
-            phaseStatuses={phaseStatuses}
             onAddMachine={onAddMachine}
             onAddImplementation={onAddImplementation}
-            onSetPlantPhase={onSetPlantPhase}
-            onSetMachinePhase={onSetMachinePhase}
-            onSetImplementationPhase={onSetImplementationPhase}
           />
         ))}
         {plants.length === 0 && (
@@ -192,24 +141,16 @@ function NewPlantForm({ onSubmit }: { onSubmit: (name: string, location: string)
 
 function PlantRow({
   plant,
-  phaseStatuses,
   onAddMachine,
   onAddImplementation,
-  onSetPlantPhase,
-  onSetMachinePhase,
-  onSetImplementationPhase,
 }: {
   plant: PlantWithMachines;
-  phaseStatuses: AreaStatusResponse[];
   onAddMachine: (plantId: string, name: string, machineType: string, location: string) => void;
   onAddImplementation: (
     machineId: string,
     label: string,
     status: ImplementationStatus,
   ) => void;
-  onSetPlantPhase: (plantId: string, statusId: string | null) => void;
-  onSetMachinePhase: (machineId: string, statusId: string | null) => void;
-  onSetImplementationPhase: (implementationId: string, statusId: string | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showMachineForm, setShowMachineForm] = useState(false);
@@ -217,27 +158,19 @@ function PlantRow({
 
   return (
     <li>
-      <div className="flex w-full items-center gap-3 px-4 py-2.5 transition-colors hover:bg-ink-850">
-        <button
-          onClick={() => setExpanded((prev) => !prev)}
-          className="flex flex-1 items-center gap-3 text-left"
-        >
-          <BuildingIcon className="h-4 w-4 flex-shrink-0 text-slate-500" />
-          <span className="font-medium text-slate-200">{plant.name}</span>
-          {plant.location && (
-            <span className="truncate text-sm text-slate-500">{plant.location}</span>
-          )}
-          <span className="flex-shrink-0 text-xs text-slate-500">
-            {machineCount} machine{machineCount === 1 ? "" : "s"}
-          </span>
-        </button>
-        {plant.phase_status && <DeviationBadge phaseName={plant.phase_status.name} />}
-        <PhaseSelect
-          statuses={phaseStatuses}
-          value={plant.phase_status?.id ?? null}
-          onChange={(statusId) => onSetPlantPhase(plant.id, statusId)}
-        />
-      </div>
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-ink-850"
+      >
+        <BuildingIcon className="h-4 w-4 flex-shrink-0 text-slate-500" />
+        <span className="font-medium text-slate-200">{plant.name}</span>
+        {plant.location && (
+          <span className="truncate text-sm text-slate-500">{plant.location}</span>
+        )}
+        <span className="ml-auto flex-shrink-0 text-xs text-slate-500">
+          {machineCount} machine{machineCount === 1 ? "" : "s"}
+        </span>
+      </button>
 
       {expanded && (
         <div className="border-t border-ink-800 bg-ink-950/30 pl-7">
@@ -269,10 +202,7 @@ function PlantRow({
               <MachineRow
                 key={machine.id}
                 machine={machine}
-                phaseStatuses={phaseStatuses}
                 onAddImplementation={onAddImplementation}
-                onSetMachinePhase={onSetMachinePhase}
-                onSetImplementationPhase={onSetImplementationPhase}
               />
             ))}
             {machineCount === 0 && (
@@ -339,20 +269,14 @@ function NewMachineForm({
 
 function MachineRow({
   machine,
-  phaseStatuses,
   onAddImplementation,
-  onSetMachinePhase,
-  onSetImplementationPhase,
 }: {
   machine: MachineWithImplementations;
-  phaseStatuses: AreaStatusResponse[];
   onAddImplementation: (
     machineId: string,
     label: string,
     status: ImplementationStatus,
   ) => void;
-  onSetMachinePhase: (machineId: string, statusId: string | null) => void;
-  onSetImplementationPhase: (implementationId: string, statusId: string | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [label, setLabel] = useState("");
@@ -368,45 +292,31 @@ function MachineRow({
 
   return (
     <li>
-      <div className="flex w-full items-center gap-3 px-4 py-2 transition-colors hover:bg-ink-850">
-        <button
-          onClick={() => setExpanded((prev) => !prev)}
-          className="flex flex-1 items-center gap-3 text-left"
-        >
-          <FolderIcon className="h-4 w-4 flex-shrink-0 text-slate-500" />
-          <span className="font-medium text-slate-200">{machine.name}</span>
-          <span className="truncate text-sm text-slate-500">
-            {[machine.machine_type, machine.location].filter(Boolean).join(" · ")}
-          </span>
-          <span className="flex-shrink-0 text-xs text-slate-500">
-            {count} implementation{count === 1 ? "" : "s"}
-          </span>
-        </button>
-        {machine.phase_status && <DeviationBadge phaseName={machine.phase_status.name} />}
-        <PhaseSelect
-          statuses={phaseStatuses}
-          value={machine.phase_status?.id ?? null}
-          onChange={(statusId) => onSetMachinePhase(machine.id, statusId)}
-        />
-      </div>
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-ink-850"
+      >
+        <FolderIcon className="h-4 w-4 flex-shrink-0 text-slate-500" />
+        <span className="font-medium text-slate-200">{machine.name}</span>
+        <span className="truncate text-sm text-slate-500">
+          {[machine.machine_type, machine.location].filter(Boolean).join(" · ")}
+        </span>
+        <span className="ml-auto flex-shrink-0 text-xs text-slate-500">
+          {count} implementation{count === 1 ? "" : "s"}
+        </span>
+      </button>
 
       {expanded && (
         <div className="border-t border-ink-800 bg-ink-950/40 py-3 pl-11 pr-4">
           <ul className="space-y-1.5">
             {machine.implementations.map((impl) => (
-              <li key={impl.id} className="flex items-center gap-2 text-sm">
-                <span className="flex-1 text-slate-300">{impl.label}</span>
+              <li key={impl.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-300">{impl.label}</span>
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
                 >
                   {impl.status}
                 </span>
-                {impl.phase_status && <DeviationBadge phaseName={impl.phase_status.name} />}
-                <PhaseSelect
-                  statuses={phaseStatuses}
-                  value={impl.phase_status?.id ?? null}
-                  onChange={(statusId) => onSetImplementationPhase(impl.id, statusId)}
-                />
               </li>
             ))}
             {count === 0 && <li className="text-sm text-slate-500">No implementations yet.</li>}

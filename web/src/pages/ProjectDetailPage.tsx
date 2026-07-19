@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   createImplementation,
@@ -26,14 +26,15 @@ import {
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
+import PhaseToolsPanel from "../components/PhaseToolsPanel";
 import ProjectAbout from "../components/ProjectAbout";
-import ProjectPhasePipeline from "../components/ProjectPhasePipeline";
 import ProjectPlants, { type PlantWithMachines } from "../components/ProjectPlants";
 import ProjectTabs from "../components/ProjectTabs";
 import ProjectTimeline from "../components/ProjectTimeline";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
   const { token } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
@@ -88,7 +89,7 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleStatusChange(statusId: string) {
+  async function handleSetProjectPhase(statusId: string) {
     if (!token || !projectId || !phase) return;
     try {
       await updateProjectAreaStatus(token, projectId, phase.id, statusId);
@@ -176,6 +177,8 @@ export default function ProjectDetailPage() {
   }
 
   const latestActivity = timeline[timeline.length - 1];
+  const viewingPhaseId = searchParams.get("phase");
+  const viewingPhase = phaseStatuses.find((status) => status.id === viewingPhaseId);
 
   return (
     <AppShell breadcrumb={project.name}>
@@ -185,30 +188,37 @@ export default function ProjectDetailPage() {
         <div className="min-w-0 flex-1 space-y-4">
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <ProjectPhasePipeline
-            phase={phase}
-            statuses={phaseStatuses}
-            onStatusChange={handleStatusChange}
-          />
+          {viewingPhase ? (
+            <PhaseToolsPanel
+              phaseStatus={viewingPhase}
+              isCurrentProjectPhase={viewingPhase.id === phase?.status.id}
+              projectPhaseId={phase?.status.id}
+              plants={plants}
+              onSetAsProjectPhase={() => handleSetProjectPhase(viewingPhase.id)}
+              onSetPlantPhase={handleSetPlantPhase}
+              onSetMachinePhase={handleSetMachinePhase}
+              onSetImplementationPhase={handleSetImplementationPhase}
+            />
+          ) : (
+            <>
+              <ProjectPlants
+                plants={plants}
+                latestActivityLabel={latestActivity?.action}
+                latestActivityAt={
+                  latestActivity
+                    ? new Date(latestActivity.occurred_at).toLocaleString()
+                    : undefined
+                }
+                onAddPlant={handleAddPlant}
+                onAddMachine={handleAddMachine}
+                onAddImplementation={handleAddImplementation}
+              />
 
-          <ProjectPlants
-            plants={plants}
-            phaseStatuses={phaseStatuses}
-            latestActivityLabel={latestActivity?.action}
-            latestActivityAt={
-              latestActivity ? new Date(latestActivity.occurred_at).toLocaleString() : undefined
-            }
-            onAddPlant={handleAddPlant}
-            onAddMachine={handleAddMachine}
-            onAddImplementation={handleAddImplementation}
-            onSetPlantPhase={handleSetPlantPhase}
-            onSetMachinePhase={handleSetMachinePhase}
-            onSetImplementationPhase={handleSetImplementationPhase}
-          />
-
-          <div id="timeline">
-            <ProjectTimeline entries={timeline} />
-          </div>
+              <div id="timeline">
+                <ProjectTimeline entries={timeline} />
+              </div>
+            </>
+          )}
         </div>
 
         <ProjectAbout description={project.description} members={members} />
