@@ -170,6 +170,11 @@ class PlantORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
+    )
+
+    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
 
 
 class MachineORM(Base):
@@ -190,6 +195,11 @@ class MachineORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
+    )
+
+    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
 
 
 class ImplementationORM(Base):
@@ -216,6 +226,11 @@ class ImplementationORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    phase_status_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=True
+    )
+
+    phase_status: Mapped[AreaStatusORM | None] = relationship(lazy="selectin")
 
 
 class AuditLogORM(Base):

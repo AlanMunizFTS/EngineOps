@@ -5,9 +5,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models import ImplementationORM
-from ops_platform.domain.entities import Implementation, ImplementationStatus
+from ops_platform.adapters.db.orm_models import AreaStatusORM, ImplementationORM
+from ops_platform.domain.entities import AreaStatus, Implementation, ImplementationStatus
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
+
+
+def _to_phase_status(orm_status: AreaStatusORM | None) -> AreaStatus | None:
+    if orm_status is None:
+        return None
+    return AreaStatus(
+        id=orm_status.id,
+        area_type_id=orm_status.area_type_id,
+        name=orm_status.name,
+        sort_order=orm_status.sort_order,
+    )
 
 
 def _to_entity(orm_impl: ImplementationORM) -> Implementation:
@@ -18,6 +29,7 @@ def _to_entity(orm_impl: ImplementationORM) -> Implementation:
         status=orm_impl.status,
         superseded_by=orm_impl.superseded_by,
         created_at=orm_impl.created_at,
+        phase_status=_to_phase_status(orm_impl.phase_status),
     )
 
 
@@ -55,4 +67,15 @@ class SqlAlchemyImplementationRepository(ImplementationRepository):
         orm_impl.superseded_by = superseded_by
         await self._session.flush()
         await self._session.refresh(orm_impl)
+        return _to_entity(orm_impl)
+
+    async def update_phase(
+        self, implementation_id: UUID, status_id: UUID | None
+    ) -> Implementation:
+        orm_impl = await self._session.get(ImplementationORM, implementation_id)
+        if orm_impl is None:
+            raise ValueError(f"implementation {implementation_id} not found")
+        orm_impl.phase_status_id = status_id
+        await self._session.flush()
+        await self._session.refresh(orm_impl, attribute_names=["phase_status"])
         return _to_entity(orm_impl)

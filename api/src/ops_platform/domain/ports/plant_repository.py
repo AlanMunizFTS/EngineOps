@@ -18,3 +18,9 @@ class PlantRepository(ABC):
 
     @abstractmethod
     async def list_for_project(self, project_id: UUID) -> list[Plant]: ...
+
+    @abstractmethod
+    async def update_phase(self, plant_id: UUID, status_id: UUID | None) -> Plant:
+        """Set (or, if status_id is None, clear) this plant's phase override -
+        see docs/architecture/adr/0003-phase-inheritance.md."""
+        ...

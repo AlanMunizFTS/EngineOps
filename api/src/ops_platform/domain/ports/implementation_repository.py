@@ -25,3 +25,11 @@ class ImplementationRepository(ABC):
     async def supersede(self, implementation_id: UUID, superseded_by: UUID) -> Implementation:
         """Marks `implementation_id` as superseded by `superseded_by`."""
         ...
+
+    @abstractmethod
+    async def update_phase(
+        self, implementation_id: UUID, status_id: UUID | None
+    ) -> Implementation:
+        """Set (or clear) this implementation's phase override - see
+        docs/architecture/adr/0003-phase-inheritance.md."""
+        ...

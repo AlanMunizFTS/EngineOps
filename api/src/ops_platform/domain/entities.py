@@ -103,33 +103,46 @@ class ProjectArea:
 class Plant:
     """A physical site a project's standard is deployed to. Sits between Project
     and Machine: one project (the standard) rolls out to many plants, each plant
-    has its own machines - `standard > plant > machine > implementation`."""
+    has its own machines - `standard > plant > machine > implementation`.
+
+    `phase_status` is None by default, meaning this plant inherits the project's
+    current Phase - it's only set when this plant's phase deliberately deviates
+    from the standard (see docs/architecture/adr/0003-phase-inheritance)."""
 
     id: UUID
     project_id: UUID
     name: str
     location: str | None
     created_at: datetime
+    phase_status: AreaStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Machine:
+    """`phase_status` is None by default, meaning this machine inherits its
+    plant's effective phase (which may itself be inherited from the project)."""
+
     id: UUID
     plant_id: UUID
     name: str
     machine_type: str | None
     location: str | None
     created_at: datetime
+    phase_status: AreaStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Implementation:
+    """`phase_status` is None by default, meaning this implementation inherits
+    its machine's effective phase."""
+
     id: UUID
     machine_id: UUID
     label: str
     status: ImplementationStatus
     superseded_by: UUID | None
     created_at: datetime
+    phase_status: AreaStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)

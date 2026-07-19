@@ -5,9 +5,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models import PlantORM
-from ops_platform.domain.entities import Plant
+from ops_platform.adapters.db.orm_models import AreaStatusORM, PlantORM
+from ops_platform.domain.entities import AreaStatus, Plant
 from ops_platform.domain.ports.plant_repository import PlantRepository
+
+
+def _to_phase_status(orm_status: AreaStatusORM | None) -> AreaStatus | None:
+    if orm_status is None:
+        return None
+    return AreaStatus(
+        id=orm_status.id,
+        area_type_id=orm_status.area_type_id,
+        name=orm_status.name,
+        sort_order=orm_status.sort_order,
+    )
 
 
 def _to_entity(orm_plant: PlantORM) -> Plant:
@@ -17,6 +28,7 @@ def _to_entity(orm_plant: PlantORM) -> Plant:
         name=orm_plant.name,
         location=orm_plant.location,
         created_at=orm_plant.created_at,
+        phase_status=_to_phase_status(orm_plant.phase_status),
     )
 
 
@@ -40,3 +52,12 @@ class SqlAlchemyPlantRepository(PlantRepository):
             select(PlantORM).where(PlantORM.project_id == project_id).order_by(PlantORM.created_at)
         )
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def update_phase(self, plant_id: UUID, status_id: UUID | None) -> Plant:
+        orm_plant = await self._session.get(PlantORM, plant_id)
+        if orm_plant is None:
+            raise ValueError(f"plant {plant_id} not found")
+        orm_plant.phase_status_id = status_id
+        await self._session.flush()
+        await self._session.refresh(orm_plant, attribute_names=["phase_status"])
+        return _to_entity(orm_plant)

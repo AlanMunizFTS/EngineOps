@@ -21,3 +21,9 @@ class MachineRepository(ABC):
 
     @abstractmethod
     async def list_for_plant(self, plant_id: UUID) -> list[Machine]: ...
+
+    @abstractmethod
+    async def update_phase(self, machine_id: UUID, status_id: UUID | None) -> Machine:
+        """Set (or clear) this machine's phase override - see
+        docs/architecture/adr/0003-phase-inheritance.md."""
+        ...

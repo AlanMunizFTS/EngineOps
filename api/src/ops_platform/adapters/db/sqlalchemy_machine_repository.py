@@ -5,9 +5,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models import MachineORM
-from ops_platform.domain.entities import Machine
+from ops_platform.adapters.db.orm_models import AreaStatusORM, MachineORM
+from ops_platform.domain.entities import AreaStatus, Machine
 from ops_platform.domain.ports.machine_repository import MachineRepository
+
+
+def _to_phase_status(orm_status: AreaStatusORM | None) -> AreaStatus | None:
+    if orm_status is None:
+        return None
+    return AreaStatus(
+        id=orm_status.id,
+        area_type_id=orm_status.area_type_id,
+        name=orm_status.name,
+        sort_order=orm_status.sort_order,
+    )
 
 
 def _to_entity(orm_machine: MachineORM) -> Machine:
@@ -18,6 +29,7 @@ def _to_entity(orm_machine: MachineORM) -> Machine:
         machine_type=orm_machine.machine_type,
         location=orm_machine.location,
         created_at=orm_machine.created_at,
+        phase_status=_to_phase_status(orm_machine.phase_status),
     )
 
 
@@ -47,3 +59,12 @@ class SqlAlchemyMachineRepository(MachineRepository):
             .order_by(MachineORM.created_at)
         )
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def update_phase(self, machine_id: UUID, status_id: UUID | None) -> Machine:
+        orm_machine = await self._session.get(MachineORM, machine_id)
+        if orm_machine is None:
+            raise ValueError(f"machine {machine_id} not found")
+        orm_machine.phase_status_id = status_id
+        await self._session.flush()
+        await self._session.refresh(orm_machine, attribute_names=["phase_status"])
+        return _to_entity(orm_machine)
