@@ -4,13 +4,15 @@ import { useParams } from "react-router-dom";
 import {
   createImplementation,
   createMachine,
+  createPlant,
   getProject,
   getProjectTimeline,
   listAreaStatuses,
   listMachineImplementations,
+  listPlantMachines,
   listProjectAreas,
-  listProjectMachines,
   listProjectMembers,
+  listProjectPlants,
   updateProjectAreaStatus,
   type AreaStatusResponse,
   type AuditLogEntryResponse,
@@ -23,7 +25,7 @@ import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import ProjectAbout from "../components/ProjectAbout";
 import ProjectAreaTiles from "../components/ProjectAreaTiles";
-import ProjectMachines, { type MachineWithImplementations } from "../components/ProjectMachines";
+import ProjectPlants, { type PlantWithMachines } from "../components/ProjectPlants";
 import ProjectTabs from "../components/ProjectTabs";
 import ProjectTimeline from "../components/ProjectTimeline";
 
@@ -34,7 +36,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [areas, setAreas] = useState<ProjectAreaResponse[]>([]);
   const [statusOptions, setStatusOptions] = useState<Record<string, AreaStatusResponse[]>>({});
-  const [machines, setMachines] = useState<MachineWithImplementations[]>([]);
+  const [plants, setPlants] = useState<PlantWithMachines[]>([]);
   const [timeline, setTimeline] = useState<AuditLogEntryResponse[]>([]);
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +50,10 @@ export default function ProjectDetailPage() {
 
   async function loadAll(authToken: string, id: string) {
     try {
-      const [projectData, areaData, machineData, timelineData, memberData] = await Promise.all([
+      const [projectData, areaData, plantData, timelineData, memberData] = await Promise.all([
         getProject(authToken, id),
         listProjectAreas(authToken, id),
-        listProjectMachines(authToken, id),
+        listProjectPlants(authToken, id),
         getProjectTimeline(authToken, id),
         listProjectMembers(authToken, id),
       ]);
@@ -68,13 +70,19 @@ export default function ProjectDetailPage() {
       );
       setStatusOptions(Object.fromEntries(statusEntries));
 
-      const machinesWithImplementations = await Promise.all(
-        machineData.map(async (machine) => ({
-          ...machine,
-          implementations: await listMachineImplementations(authToken, machine.id),
-        })),
+      const plantsWithMachines = await Promise.all(
+        plantData.map(async (plant) => {
+          const machineData = await listPlantMachines(authToken, plant.id);
+          const machinesWithImplementations = await Promise.all(
+            machineData.map(async (machine) => ({
+              ...machine,
+              implementations: await listMachineImplementations(authToken, machine.id),
+            })),
+          );
+          return { ...plant, machines: machinesWithImplementations };
+        }),
       );
-      setMachines(machinesWithImplementations);
+      setPlants(plantsWithMachines);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load project");
     }
@@ -90,10 +98,25 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleAddMachine(name: string, machineType: string, location: string) {
+  async function handleAddPlant(name: string, location: string) {
     if (!token || !projectId) return;
     try {
-      await createMachine(token, projectId, name, machineType, location);
+      await createPlant(token, projectId, name, location);
+      await loadAll(token, projectId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create plant");
+    }
+  }
+
+  async function handleAddMachine(
+    plantId: string,
+    name: string,
+    machineType: string,
+    location: string,
+  ) {
+    if (!token || !projectId) return;
+    try {
+      await createMachine(token, plantId, name, machineType, location);
       await loadAll(token, projectId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create machine");
@@ -138,12 +161,13 @@ export default function ProjectDetailPage() {
             onStatusChange={handleStatusChange}
           />
 
-          <ProjectMachines
-            machines={machines}
+          <ProjectPlants
+            plants={plants}
             latestActivityLabel={latestActivity?.action}
             latestActivityAt={
               latestActivity ? new Date(latestActivity.occurred_at).toLocaleString() : undefined
             }
+            onAddPlant={handleAddPlant}
             onAddMachine={handleAddMachine}
             onAddImplementation={handleAddImplementation}
           />

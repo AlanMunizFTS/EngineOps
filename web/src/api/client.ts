@@ -60,9 +60,17 @@ export interface ProjectAreaResponse {
 
 export type ImplementationStatus = "planned" | "active" | "superseded" | "decommissioned";
 
-export interface MachineResponse {
+export interface PlantResponse {
   id: string;
   project_id: string;
+  name: string;
+  location: string | null;
+  created_at: string;
+}
+
+export interface MachineResponse {
+  id: string;
+  plant_id: string;
   name: string;
   machine_type: string | null;
   location: string | null;
@@ -204,21 +212,34 @@ export function getRecentActivity(token: string, limit = 20): Promise<ActivityEn
   return authFetch(token, `/activity?limit=${limit}`);
 }
 
-export function listProjectMachines(
+export function listProjectPlants(token: string, projectId: string): Promise<PlantResponse[]> {
+  return authFetch(token, `/projects/${projectId}/plants`);
+}
+
+export function createPlant(
   token: string,
   projectId: string,
-): Promise<MachineResponse[]> {
-  return authFetch(token, `/projects/${projectId}/machines`);
+  name: string,
+  location: string,
+): Promise<PlantResponse> {
+  return authFetch(token, `/projects/${projectId}/plants`, {
+    method: "POST",
+    body: JSON.stringify({ name, location: location || null }),
+  });
+}
+
+export function listPlantMachines(token: string, plantId: string): Promise<MachineResponse[]> {
+  return authFetch(token, `/plants/${plantId}/machines`);
 }
 
 export function createMachine(
   token: string,
-  projectId: string,
+  plantId: string,
   name: string,
   machineType: string,
   location: string,
 ): Promise<MachineResponse> {
-  return authFetch(token, `/projects/${projectId}/machines`, {
+  return authFetch(token, `/plants/${plantId}/machines`, {
     method: "POST",
     body: JSON.stringify({
       name,

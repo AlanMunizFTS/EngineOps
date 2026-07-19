@@ -85,6 +85,16 @@ export function FolderIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function BuildingIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <rect x="4" y="3.5" width="11" height="17" rx="1" />
+      <path strokeLinecap="round" d="M7.5 7h1M11 7h1M7.5 10.5h1M11 10.5h1M7.5 14h1M11 14h1" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5h3.5a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H15" />
+    </svg>
+  );
+}
+
 export function AiBadgeIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={className}>
