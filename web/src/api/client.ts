@@ -31,6 +31,11 @@ export interface ProjectMemberResponse {
   added_at: string;
 }
 
+export interface ProjectMemberDetailResponse extends ProjectMemberResponse {
+  email: string;
+  full_name: string;
+}
+
 export interface AreaTypeResponse {
   id: string;
   name: string;
@@ -158,7 +163,7 @@ export function createProject(
 export function listProjectMembers(
   token: string,
   projectId: string,
-): Promise<ProjectMemberResponse[]> {
+): Promise<ProjectMemberDetailResponse[]> {
   return authFetch(token, `/projects/${projectId}/members`);
 }
 
