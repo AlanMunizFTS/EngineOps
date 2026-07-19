@@ -19,7 +19,7 @@ export default function RoadmapCard() {
   if (dismissed) return null;
 
   return (
-    <div className="relative rounded-2xl border border-ink-800 bg-gradient-to-br from-ink-900 to-ink-850 p-5 shadow-lg shadow-black/20">
+    <div className="relative rounded-md border border-ink-800 bg-gradient-to-br from-ink-900 to-ink-850 p-4">
       <button
         onClick={() => setDismissed(true)}
         aria-label="Dismiss"

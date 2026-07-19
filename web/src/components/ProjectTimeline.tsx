@@ -2,8 +2,8 @@ import type { AuditLogEntryResponse } from "../api/client";
 
 export default function ProjectTimeline({ entries }: { entries: AuditLogEntryResponse[] }) {
   return (
-    <section className="rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-lg shadow-black/20">
-      <h2 className="mb-4 text-base font-semibold text-slate-100">Timeline</h2>
+    <section className="rounded-md border border-ink-800 bg-ink-900 p-4">
+      <h2 className="mb-3 text-sm font-semibold text-slate-100">Timeline</h2>
       {entries.length === 0 ? (
         <p className="text-sm text-slate-500">No activity yet.</p>
       ) : (

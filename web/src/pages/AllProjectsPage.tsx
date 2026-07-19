@@ -26,7 +26,7 @@ export default function AllProjectsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl space-y-6 p-8">
+      <div className="mx-auto max-w-3xl space-y-4 p-6">
         <h1 className="text-2xl font-semibold text-slate-100">All projects</h1>
 
         <input
@@ -44,12 +44,12 @@ export default function AllProjectsPage() {
         ) : filtered.length === 0 ? (
           <p className="text-sm text-slate-500">No projects found.</p>
         ) : (
-          <ul className="divide-y divide-ink-800 rounded-2xl border border-ink-800 bg-ink-900 shadow-lg shadow-black/20">
+          <ul className="divide-y divide-ink-800 rounded-md border border-ink-800 bg-ink-900">
             {filtered.map((project) => (
               <li key={project.id}>
                 <Link
                   to={`/projects/${project.id}`}
-                  className="group block px-6 py-4 transition-colors hover:bg-ink-850"
+                  className="group block px-4 py-3 transition-colors hover:bg-ink-850"
                 >
                   <p className="font-medium text-slate-100 group-hover:text-ember-400">
                     {project.name}

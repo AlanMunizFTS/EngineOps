@@ -128,8 +128,8 @@ export default function ProjectDetailPage() {
     <AppShell breadcrumb={project.name}>
       <ProjectTabs />
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 p-8 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6 lg:flex-row">
+        <div className="min-w-0 flex-1 space-y-4">
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <ProjectAreaTiles
@@ -138,20 +138,12 @@ export default function ProjectDetailPage() {
             onStatusChange={handleStatusChange}
           />
 
-          {latestActivity && (
-            <div className="flex items-center gap-2 rounded-xl border border-ink-800 bg-ink-900 px-4 py-2.5 text-sm text-slate-400">
-              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-ember-500 text-[10px] font-semibold text-white">
-                {project.name.charAt(0).toUpperCase()}
-              </span>
-              <span className="truncate">Latest: {latestActivity.action}</span>
-              <span className="ml-auto flex-shrink-0 text-xs text-slate-500">
-                {new Date(latestActivity.occurred_at).toLocaleString()}
-              </span>
-            </div>
-          )}
-
           <ProjectMachines
             machines={machines}
+            latestActivityLabel={latestActivity?.action}
+            latestActivityAt={
+              latestActivity ? new Date(latestActivity.occurred_at).toLocaleString() : undefined
+            }
             onAddMachine={handleAddMachine}
             onAddImplementation={handleAddImplementation}
           />

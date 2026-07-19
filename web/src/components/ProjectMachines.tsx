@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ImplementationResponse, ImplementationStatus, MachineResponse } from "../api/client";
+import { FolderIcon } from "./icons";
 
 export interface MachineWithImplementations extends MachineResponse {
   implementations: ImplementationResponse[];
@@ -8,6 +9,8 @@ export interface MachineWithImplementations extends MachineResponse {
 
 interface ProjectMachinesProps {
   machines: MachineWithImplementations[];
+  latestActivityLabel?: string;
+  latestActivityAt?: string;
   onAddMachine: (name: string, machineType: string, location: string) => void;
   onAddImplementation: (
     machineId: string,
@@ -25,25 +28,58 @@ const STATUS_STYLES: Record<ImplementationStatus, string> = {
 
 export default function ProjectMachines({
   machines,
+  latestActivityLabel,
+  latestActivityAt,
   onAddMachine,
   onAddImplementation,
 }: ProjectMachinesProps) {
+  const [showForm, setShowForm] = useState(false);
+
   return (
-    <section className="rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-lg shadow-black/20">
-      <h2 className="mb-4 text-base font-semibold text-slate-100">Machines</h2>
-      <NewMachineForm onSubmit={onAddMachine} />
-      <div className="mt-4 space-y-4">
-        {machines.map((machine) => (
-          <MachineCard
-            key={machine.id}
-            machine={machine}
-            onAddImplementation={onAddImplementation}
+    <section className="rounded-md border border-ink-800 bg-ink-900">
+      {latestActivityLabel && (
+        <div className="flex items-center gap-2 border-b border-ink-800 px-4 py-2.5 text-sm">
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-ember-500 text-[10px] font-semibold text-white">
+            •
+          </span>
+          <span className="truncate text-slate-300">{latestActivityLabel}</span>
+          {latestActivityAt && (
+            <span className="ml-auto flex-shrink-0 text-xs text-slate-500">
+              {latestActivityAt}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-b border-ink-800 px-4 py-2">
+        <h2 className="text-sm font-semibold text-slate-200">Machines</h2>
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          className="text-xs font-medium text-ember-400 transition-colors hover:text-ember-300"
+        >
+          {showForm ? "Cancel" : "+ New machine"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="border-b border-ink-800 px-4 py-3">
+          <NewMachineForm
+            onSubmit={(name, type, location) => {
+              onAddMachine(name, type, location);
+              setShowForm(false);
+            }}
           />
+        </div>
+      )}
+
+      <ul className="divide-y divide-ink-800">
+        {machines.map((machine) => (
+          <MachineRow key={machine.id} machine={machine} onAddImplementation={onAddImplementation} />
         ))}
         {machines.length === 0 && (
-          <p className="text-sm text-slate-500">No machines attached yet.</p>
+          <li className="px-4 py-6 text-sm text-slate-500">No machines attached yet.</li>
         )}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -73,33 +109,34 @@ function NewMachineForm({
         placeholder="Machine name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+        autoFocus
+        className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <input
         type="text"
         placeholder="Type (optional)"
         value={machineType}
         onChange={(e) => setMachineType(e.target.value)}
-        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+        className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <input
         type="text"
         placeholder="Location (optional)"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
-        className="rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+        className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
       <button
         type="submit"
-        className="rounded-lg bg-ember-500 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-ember-600"
+        className="rounded-md bg-ember-500 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-ember-600"
       >
-        Add machine
+        Add
       </button>
     </form>
   );
 }
 
-function MachineCard({
+function MachineRow({
   machine,
   onAddImplementation,
 }: {
@@ -110,6 +147,7 @@ function MachineCard({
     status: ImplementationStatus,
   ) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [label, setLabel] = useState("");
 
   function handleSubmit(event: React.FormEvent) {
@@ -119,44 +157,57 @@ function MachineCard({
     setLabel("");
   }
 
+  const count = machine.implementations.length;
+
   return (
-    <div className="rounded-xl border border-ink-700 bg-ink-850 p-4">
-      <p className="font-medium text-slate-100">{machine.name}</p>
-      <p className="text-xs text-slate-500">
-        {[machine.machine_type, machine.location].filter(Boolean).join(" · ") || "No details"}
-      </p>
+    <li>
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-ink-850"
+      >
+        <FolderIcon className="h-4 w-4 flex-shrink-0 text-slate-500" />
+        <span className="font-medium text-slate-200">{machine.name}</span>
+        <span className="truncate text-sm text-slate-500">
+          {[machine.machine_type, machine.location].filter(Boolean).join(" · ")}
+        </span>
+        <span className="ml-auto flex-shrink-0 text-xs text-slate-500">
+          {count} implementation{count === 1 ? "" : "s"}
+        </span>
+      </button>
 
-      <ul className="mt-3 space-y-1.5">
-        {machine.implementations.map((impl) => (
-          <li key={impl.id} className="flex items-center justify-between text-sm">
-            <span className="text-slate-300">{impl.label}</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
+      {expanded && (
+        <div className="border-t border-ink-800 bg-ink-950/40 py-3 pl-11 pr-4">
+          <ul className="space-y-1.5">
+            {machine.implementations.map((impl) => (
+              <li key={impl.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-300">{impl.label}</span>
+                <span
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLES[impl.status]}`}
+                >
+                  {impl.status}
+                </span>
+              </li>
+            ))}
+            {count === 0 && <li className="text-sm text-slate-500">No implementations yet.</li>}
+          </ul>
+
+          <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
+            <input
+              type="text"
+              placeholder="New implementation label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              className="flex-1 rounded-md border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-ink-700 px-3 py-1 text-sm font-medium text-slate-200 transition-colors hover:bg-ink-600"
             >
-              {impl.status}
-            </span>
-          </li>
-        ))}
-        {machine.implementations.length === 0 && (
-          <li className="text-sm text-slate-500">No implementations yet.</li>
-        )}
-      </ul>
-
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-        <input
-          type="text"
-          placeholder="New implementation label"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          className="flex-1 rounded-lg border border-ink-700 bg-ink-800 px-2 py-1 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-ink-700 px-3 py-1 text-sm font-medium text-slate-200 transition-colors hover:bg-ink-600"
-        >
-          Add
-        </button>
-      </form>
-    </div>
+              Add
+            </button>
+          </form>
+        </div>
+      )}
+    </li>
   );
 }

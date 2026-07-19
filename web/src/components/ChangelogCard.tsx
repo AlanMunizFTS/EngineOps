@@ -6,7 +6,7 @@ const CHANGELOG = [
 
 export default function ChangelogCard() {
   return (
-    <div className="rounded-2xl border border-ink-800 bg-ink-900 p-5 shadow-lg shadow-black/20">
+    <div className="rounded-md border border-ink-800 bg-ink-900 p-4">
       <p className="text-sm font-semibold text-slate-100">Latest from our changelog</p>
       <ul className="mt-3 space-y-3">
         {CHANGELOG.map((entry) => (

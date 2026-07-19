@@ -18,7 +18,7 @@ function DropdownButton({ label }: { label: string }) {
 export default function AskBox() {
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-ink-800 bg-ink-900 p-4 shadow-lg shadow-black/20">
+      <div className="rounded-md border border-ink-800 bg-ink-900 p-4">
         <div className="flex items-center justify-between gap-3">
           <input
             disabled

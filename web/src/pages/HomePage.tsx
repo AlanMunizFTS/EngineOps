@@ -76,8 +76,8 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex max-w-6xl gap-6 p-8">
-        <div className="min-w-0 flex-1 space-y-6">
+      <div className="mx-auto flex max-w-6xl gap-6 p-6">
+        <div className="min-w-0 flex-1 space-y-4">
           <h1 className="text-2xl font-semibold text-slate-100">Home</h1>
 
           <AskBox />
@@ -85,7 +85,7 @@ export default function HomePage() {
           {showCreateForm && (
             <form
               onSubmit={handleCreate}
-              className="relative space-y-3 rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-lg shadow-black/20"
+              className="relative space-y-3 rounded-md border border-ink-800 bg-ink-900 p-4"
             >
               <button
                 type="button"
@@ -156,21 +156,18 @@ export default function HomePage() {
                 Nothing yet — create a project to get started.
               </p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="divide-y divide-ink-800 rounded-md border border-ink-800 bg-ink-900">
                 {activity.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-xl border border-ink-800 bg-ink-900 p-4 shadow-lg shadow-black/10"
-                  >
+                  <li key={item.id} className="px-4 py-3">
                     <Link
                       to={`/projects/${item.project_id}`}
-                      className="font-semibold text-slate-100 transition-colors hover:text-ember-400"
+                      className="font-medium text-slate-100 transition-colors hover:text-ember-400"
                     >
                       {item.project_name}
                     </Link>
-                    <p className="mt-1 text-sm text-slate-400">{describeAction(item.action)}</p>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                      <span className="h-2 w-2 rounded-full bg-ember-500" />
+                    <p className="mt-0.5 text-sm text-slate-400">{describeAction(item.action)}</p>
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500">
+                      <span className="h-1.5 w-1.5 rounded-full bg-ember-500" />
                       <span className="capitalize">{item.entity_type}</span>
                       <span>·</span>
                       <span>{new Date(item.occurred_at).toLocaleString()}</span>
