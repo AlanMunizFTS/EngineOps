@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
-import ProjectsListPage from "./pages/ProjectsListPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token, isLoading } = useAuth();
@@ -25,7 +25,7 @@ function AppRoutes() {
         path="/projects"
         element={
           <ProtectedRoute>
-            <ProjectsListPage />
+            <HomePage />
           </ProtectedRoute>
         }
       />

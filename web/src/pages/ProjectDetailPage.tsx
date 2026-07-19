@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import {
   createImplementation,
@@ -18,7 +18,7 @@ import {
   type ProjectResponse,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import Brand from "../components/Brand";
+import AppShell from "../components/AppShell";
 import ProjectAreaTiles from "../components/ProjectAreaTiles";
 import ProjectMachines, { type MachineWithImplementations } from "../components/ProjectMachines";
 import ProjectTimeline from "../components/ProjectTimeline";
@@ -109,30 +109,22 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-950">
-        <p className="text-sm text-slate-500">{error ?? "Loading..."}</p>
-      </div>
+      <AppShell>
+        <p className="p-8 text-sm text-slate-500">{error ?? "Loading..."}</p>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-ink-950">
-      <header className="border-b border-ink-800 bg-ink-900/70 px-8 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <Brand subtitle={project.name} />
-          <Link
-            to="/projects"
-            className="text-sm text-slate-500 transition-colors hover:text-ember-400"
-          >
-            ← All projects
-          </Link>
+    <AppShell>
+      <div className="mx-auto max-w-5xl space-y-6 p-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-100">{project.name}</h1>
+          {project.description && (
+            <p className="mt-1 text-sm text-slate-500">{project.description}</p>
+          )}
         </div>
-        {project.description && (
-          <p className="mx-auto mt-2 max-w-5xl text-sm text-slate-500">{project.description}</p>
-        )}
-      </header>
 
-      <main className="mx-auto max-w-5xl space-y-6 p-8">
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         <ProjectAreaTiles
@@ -146,7 +138,7 @@ export default function ProjectDetailPage() {
           onAddImplementation={handleAddImplementation}
         />
         <ProjectTimeline entries={timeline} />
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

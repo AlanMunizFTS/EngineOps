@@ -84,6 +84,18 @@ export interface AuditLogEntryResponse {
   occurred_at: string;
 }
 
+export interface ActivityEntryResponse {
+  id: string;
+  project_id: string;
+  project_name: string;
+  actor_id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  diff: Record<string, unknown>;
+  occurred_at: string;
+}
+
 async function parseOrThrow<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: response.statusText }));
@@ -181,6 +193,10 @@ export function getProjectTimeline(
   projectId: string,
 ): Promise<AuditLogEntryResponse[]> {
   return authFetch(token, `/projects/${projectId}/timeline`);
+}
+
+export function getRecentActivity(token: string, limit = 20): Promise<ActivityEntryResponse[]> {
+  return authFetch(token, `/activity?limit=${limit}`);
 }
 
 export function listProjectMachines(
