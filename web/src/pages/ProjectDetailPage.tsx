@@ -13,6 +13,9 @@ import {
   listProjectAreas,
   listProjectMembers,
   listProjectPlants,
+  updateImplementationPhase,
+  updateMachinePhase,
+  updatePlantPhase,
   updateProjectAreaStatus,
   type AreaStatusResponse,
   type AuditLogEntryResponse,
@@ -134,6 +137,36 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleSetPlantPhase(plantId: string, statusId: string | null) {
+    if (!token || !projectId) return;
+    try {
+      await updatePlantPhase(token, plantId, statusId);
+      await loadAll(token, projectId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update plant phase");
+    }
+  }
+
+  async function handleSetMachinePhase(machineId: string, statusId: string | null) {
+    if (!token || !projectId) return;
+    try {
+      await updateMachinePhase(token, machineId, statusId);
+      await loadAll(token, projectId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update machine phase");
+    }
+  }
+
+  async function handleSetImplementationPhase(implementationId: string, statusId: string | null) {
+    if (!token || !projectId) return;
+    try {
+      await updateImplementationPhase(token, implementationId, statusId);
+      await loadAll(token, projectId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update implementation phase");
+    }
+  }
+
   if (!project) {
     return (
       <AppShell>
@@ -160,6 +193,7 @@ export default function ProjectDetailPage() {
 
           <ProjectPlants
             plants={plants}
+            phaseStatuses={phaseStatuses}
             latestActivityLabel={latestActivity?.action}
             latestActivityAt={
               latestActivity ? new Date(latestActivity.occurred_at).toLocaleString() : undefined
@@ -167,6 +201,9 @@ export default function ProjectDetailPage() {
             onAddPlant={handleAddPlant}
             onAddMachine={handleAddMachine}
             onAddImplementation={handleAddImplementation}
+            onSetPlantPhase={handleSetPlantPhase}
+            onSetMachinePhase={handleSetMachinePhase}
+            onSetImplementationPhase={handleSetImplementationPhase}
           />
 
           <div id="timeline">

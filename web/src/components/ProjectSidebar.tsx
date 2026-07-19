@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { ProjectResponse } from "../api/client";
 import { BoardIcon, FolderIcon, HomeIcon, IssueIcon, SparkleIcon } from "./icons";
+import ProjectTree from "./ProjectTree";
 
 const COLLAPSED_LIMIT = 6;
 
@@ -20,14 +21,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Kanban boards", icon: BoardIcon, comingSoon: true },
   { label: "AI assistant", icon: SparkleIcon, comingSoon: true },
 ];
-
-function ProjectIcon({ name }: { name: string }) {
-  return (
-    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-ink-700 text-[10px] font-semibold text-slate-300">
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
-}
 
 function NavMenu() {
   const location = useLocation();
@@ -110,28 +103,12 @@ export default function ProjectSidebar({
         className="mt-3 w-full rounded-lg border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
       />
 
-      <nav className="mt-3 space-y-0.5">
-        {visible.map((project) => {
-          const isActive = project.id === activeProjectId;
-          return (
-            <Link
-              key={project.id}
-              to={`/projects/${project.id}`}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                isActive
-                  ? "bg-ember-500/10 text-ember-400"
-                  : "text-slate-300 hover:bg-ink-800 hover:text-slate-100"
-              }`}
-            >
-              <ProjectIcon name={project.name} />
-              <span className="truncate">{project.name}</span>
-            </Link>
-          );
-        })}
+      <div className="mt-3">
+        <ProjectTree projects={visible} activeProjectId={activeProjectId} />
         {filtered.length === 0 && (
           <p className="px-2 py-1.5 text-sm text-slate-500">No projects found.</p>
         )}
-      </nav>
+      </div>
 
       {!showAll && filtered.length > COLLAPSED_LIMIT && (
         <button

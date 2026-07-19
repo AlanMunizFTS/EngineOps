@@ -66,6 +66,7 @@ export interface PlantResponse {
   name: string;
   location: string | null;
   created_at: string;
+  phase_status: AreaStatusResponse | null;
 }
 
 export interface MachineResponse {
@@ -75,6 +76,7 @@ export interface MachineResponse {
   machine_type: string | null;
   location: string | null;
   created_at: string;
+  phase_status: AreaStatusResponse | null;
 }
 
 export interface ImplementationResponse {
@@ -84,6 +86,7 @@ export interface ImplementationResponse {
   status: ImplementationStatus;
   superseded_by: string | null;
   created_at: string;
+  phase_status: AreaStatusResponse | null;
 }
 
 export interface AuditLogEntryResponse {
@@ -230,6 +233,39 @@ export function createPlant(
 
 export function listPlantMachines(token: string, plantId: string): Promise<MachineResponse[]> {
   return authFetch(token, `/plants/${plantId}/machines`);
+}
+
+export function updatePlantPhase(
+  token: string,
+  plantId: string,
+  statusId: string | null,
+): Promise<PlantResponse> {
+  return authFetch(token, `/plants/${plantId}/phase`, {
+    method: "PATCH",
+    body: JSON.stringify({ status_id: statusId }),
+  });
+}
+
+export function updateMachinePhase(
+  token: string,
+  machineId: string,
+  statusId: string | null,
+): Promise<MachineResponse> {
+  return authFetch(token, `/machines/${machineId}/phase`, {
+    method: "PATCH",
+    body: JSON.stringify({ status_id: statusId }),
+  });
+}
+
+export function updateImplementationPhase(
+  token: string,
+  implementationId: string,
+  statusId: string | null,
+): Promise<ImplementationResponse> {
+  return authFetch(token, `/implementations/${implementationId}/phase`, {
+    method: "PATCH",
+    body: JSON.stringify({ status_id: statusId }),
+  });
 }
 
 export function createMachine(
