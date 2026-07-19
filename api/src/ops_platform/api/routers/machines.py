@@ -13,7 +13,7 @@ from ops_platform.api.deps import (
 )
 from ops_platform.api.routers.plants import get_plant_or_404
 from ops_platform.db.session import get_db_session
-from ops_platform.domain.entities import Implementation, Machine, User
+from ops_platform.domain.entities import AreaStatus, Implementation, Machine, User
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.implementation_repository import ImplementationRepository
 from ops_platform.domain.ports.machine_repository import MachineRepository
@@ -23,9 +23,22 @@ from ops_platform.schemas.machines import (
     ImplementationResponse,
     MachineCreateRequest,
     MachineResponse,
+    PhaseUpdateRequest,
 )
+from ops_platform.schemas.projects import AreaStatusResponse
 
 router = APIRouter(tags=["machines"])
+
+
+def _phase_status_response(phase_status: AreaStatus | None) -> AreaStatusResponse | None:
+    if phase_status is None:
+        return None
+    return AreaStatusResponse(
+        id=phase_status.id,
+        area_type_id=phase_status.area_type_id,
+        name=phase_status.name,
+        sort_order=phase_status.sort_order,
+    )
 
 
 def _machine_response(machine: Machine) -> MachineResponse:
@@ -36,6 +49,7 @@ def _machine_response(machine: Machine) -> MachineResponse:
         machine_type=machine.machine_type,
         location=machine.location,
         created_at=machine.created_at,
+        phase_status=_phase_status_response(machine.phase_status),
     )
 
 
@@ -47,6 +61,7 @@ def _implementation_response(implementation: Implementation) -> ImplementationRe
         status=implementation.status,
         superseded_by=implementation.superseded_by,
         created_at=implementation.created_at,
+        phase_status=_phase_status_response(implementation.phase_status),
     )
 
 
@@ -109,6 +124,35 @@ async def get_machine(
 ) -> MachineResponse:
     machine = await _get_machine_or_404(machine_repo, machine_id)
     return _machine_response(machine)
+
+
+@router.patch("/machines/{machine_id}/phase", response_model=MachineResponse)
+async def update_machine_phase(
+    machine_id: UUID,
+    payload: PhaseUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
+    audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MachineResponse:
+    machine = await _get_machine_or_404(machine_repo, machine_id)
+    plant = await get_plant_or_404(plant_repo, machine.plant_id)
+
+    updated = await machine_repo.update_phase(machine_id, payload.status_id)
+    await audit.record(
+        project_id=plant.project_id,
+        actor_id=current_user.id,
+        entity_type="machine",
+        entity_id=machine_id,
+        action="machine.phase_changed",
+        diff={
+            "from": machine.phase_status.name if machine.phase_status else None,
+            "to": updated.phase_status.name if updated.phase_status else None,
+        },
+    )
+    await session.commit()
+    return _machine_response(updated)
 
 
 @router.post(
@@ -190,6 +234,43 @@ async def supersede_implementation(
         entity_id=implementation_id,
         action="implementation.superseded",
         diff={"superseded_by": str(superseded_by)},
+    )
+    await session.commit()
+    return _implementation_response(updated)
+
+
+@router.patch("/implementations/{implementation_id}/phase", response_model=ImplementationResponse)
+async def update_implementation_phase(
+    implementation_id: UUID,
+    payload: PhaseUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    machine_repo: Annotated[MachineRepository, Depends(get_machine_repository)],
+    plant_repo: Annotated[PlantRepository, Depends(get_plant_repository)],
+    implementation_repo: Annotated[
+        ImplementationRepository, Depends(get_implementation_repository)
+    ],
+    audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ImplementationResponse:
+    implementation = await implementation_repo.get(implementation_id)
+    if implementation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Implementation not found"
+        )
+    machine = await _get_machine_or_404(machine_repo, implementation.machine_id)
+    plant = await get_plant_or_404(plant_repo, machine.plant_id)
+
+    updated = await implementation_repo.update_phase(implementation_id, payload.status_id)
+    await audit.record(
+        project_id=plant.project_id,
+        actor_id=current_user.id,
+        entity_type="implementation",
+        entity_id=implementation_id,
+        action="implementation.phase_changed",
+        diff={
+            "from": implementation.phase_status.name if implementation.phase_status else None,
+            "to": updated.phase_status.name if updated.phase_status else None,
+        },
     )
     await session.commit()
     return _implementation_response(updated)
