@@ -81,8 +81,8 @@ def fake_implementation_repository() -> FakeImplementationRepository:
 
 
 @pytest.fixture
-def fake_audit_log() -> FakeAuditLog:
-    return FakeAuditLog()
+def fake_audit_log(fake_project_repository: FakeProjectRepository) -> FakeAuditLog:
+    return FakeAuditLog(fake_project_repository)
 
 
 @pytest.fixture

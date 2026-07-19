@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from ops_platform.domain.entities import (
+    ActivityEntry,
     AreaStatus,
     AreaType,
     AuditLogEntry,
@@ -199,10 +200,13 @@ class FakeImplementationRepository(ImplementationRepository):
 
 class FakeAuditLog(AuditRecorder, AuditLogRepository):
     """Implements both the write-side hook and the read-side repository, so tests can
-    record via the router and immediately assert on what landed."""
+    record via the router and immediately assert on what landed. Takes the project
+    repository fake to resolve project names for the cross-project activity feed,
+    mirroring the SQL adapter's join against `projects`."""
 
-    def __init__(self) -> None:
+    def __init__(self, project_repository: FakeProjectRepository) -> None:
         self.entries: list[AuditLogEntry] = []
+        self._project_repository = project_repository
 
     async def record(
         self,
@@ -229,3 +233,11 @@ class FakeAuditLog(AuditRecorder, AuditLogRepository):
 
     async def list_for_project(self, project_id: UUID) -> list[AuditLogEntry]:
         return [entry for entry in self.entries if entry.project_id == project_id]
+
+    async def list_recent(self, limit: int) -> list[ActivityEntry]:
+        ordered = sorted(self.entries, key=lambda entry: entry.occurred_at, reverse=True)
+        result = []
+        for entry in ordered[:limit]:
+            project = self._project_repository._projects.get(entry.project_id)
+            result.append(ActivityEntry(entry=entry, project_name=project.name if project else ""))
+        return result
