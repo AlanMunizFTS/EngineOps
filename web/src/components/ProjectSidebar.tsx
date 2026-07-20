@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { ProjectResponse } from "../api/client";
 import { BoardIcon, FolderIcon, HomeIcon, IssueIcon, SparkleIcon } from "./icons";
-import ProjectPhasesSidebar from "./ProjectPhasesSidebar";
 import ProjectTree from "./ProjectTree";
 
 const COLLAPSED_LIMIT = 6;
@@ -119,8 +118,6 @@ export default function ProjectSidebar({
           Show more
         </button>
       )}
-
-      {activeProjectId && <ProjectPhasesSidebar projectId={activeProjectId} />}
     </aside>
   );
 }

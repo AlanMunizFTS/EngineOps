@@ -31,15 +31,17 @@ export default function AppShell({
     <div className="flex min-h-screen flex-col bg-ink-950">
       <TopBar
         projects={projects}
-        onToggleSidebar={() => setIsNavExpanded((prev) => !prev)}
+        onToggleSidebar={activeProjectId ? undefined : () => setIsNavExpanded((prev) => !prev)}
         breadcrumb={breadcrumb}
       />
       <div className="flex min-h-0 flex-1">
-        <ProjectSidebar
-          projects={projects}
-          activeProjectId={activeProjectId}
-          isExpanded={isNavExpanded}
-        />
+        {!activeProjectId && (
+          <ProjectSidebar
+            projects={projects}
+            activeProjectId={activeProjectId}
+            isExpanded={isNavExpanded}
+          />
+        )}
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

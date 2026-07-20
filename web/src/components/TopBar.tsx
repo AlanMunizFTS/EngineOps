@@ -18,7 +18,7 @@ import {
 
 interface TopBarProps {
   projects: ProjectResponse[];
-  onToggleSidebar: () => void;
+  onToggleSidebar?: () => void;
   breadcrumb?: string;
 }
 
@@ -90,13 +90,15 @@ export default function TopBar({ projects, onToggleSidebar, breadcrumb }: TopBar
 
   return (
     <header className="flex items-center gap-3 border-b border-ink-800 bg-ink-900/70 px-4 py-3 backdrop-blur">
-      <button
-        onClick={onToggleSidebar}
-        className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-ink-800 hover:text-slate-100"
-        aria-label="Toggle sidebar"
-      >
-        <MenuIcon />
-      </button>
+      {onToggleSidebar && (
+        <button
+          onClick={onToggleSidebar}
+          className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-ink-800 hover:text-slate-100"
+          aria-label="Toggle sidebar"
+        >
+          <MenuIcon />
+        </button>
+      )}
 
       <Link to="/projects" className="flex flex-shrink-0 items-center gap-1.5">
         <Brand />
