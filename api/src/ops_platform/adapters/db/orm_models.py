@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -91,65 +91,6 @@ class ProjectMemberORM(Base):
         Enum(ProjectRole, name="project_role", values_callable=enum_values), nullable=False
     )
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class AreaTypeORM(Base):
-    """Lookup table: Procurement, Electrical, Mechanical, ... - adding a new area is a
-    data insert, not a migration (see docs/architecture/adr/0001)."""
-
-    __tablename__ = "area_types"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
-
-class AreaStatusORM(Base):
-    """Lookup table of valid statuses, scoped per area_type (Procurement's vocabulary
-    differs from Scope & Charter's)."""
-
-    __tablename__ = "area_statuses"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    area_type_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_types.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer(), nullable=False, default=0)
-
-
-class ProjectAreaORM(Base):
-    """A project's independent progress track for one area - one row per
-    (project_id, area_type_id), each with its own status (see docs/architecture/adr/0001
-    for why this replaces a single projects.status field)."""
-
-    __tablename__ = "project_areas"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    project_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
-    )
-    area_type_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_types.id"), nullable=False
-    )
-    status_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("area_statuses.id"), nullable=False
-    )
-    updated_by: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-
-    area_type: Mapped[AreaTypeORM] = relationship(lazy="selectin")
-    status: Mapped[AreaStatusORM] = relationship(lazy="selectin")
 
 
 class AuditLogORM(Base):

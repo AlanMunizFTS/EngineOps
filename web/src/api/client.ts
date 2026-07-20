@@ -36,28 +36,6 @@ export interface ProjectMemberDetailResponse extends ProjectMemberResponse {
   full_name: string;
 }
 
-export interface AreaTypeResponse {
-  id: string;
-  name: string;
-  description: string | null;
-}
-
-export interface AreaStatusResponse {
-  id: string;
-  area_type_id: string;
-  name: string;
-  sort_order: number;
-}
-
-export interface ProjectAreaResponse {
-  id: string;
-  project_id: string;
-  area_type: AreaTypeResponse;
-  status: AreaStatusResponse;
-  updated_by: string | null;
-  updated_at: string;
-}
-
 export interface AuditLogEntryResponse {
   id: string;
   project_id: string;
@@ -145,32 +123,6 @@ export function listProjectMembers(
   projectId: string,
 ): Promise<ProjectMemberDetailResponse[]> {
   return authFetch(token, `/projects/${projectId}/members`);
-}
-
-export function listProjectAreas(
-  token: string,
-  projectId: string,
-): Promise<ProjectAreaResponse[]> {
-  return authFetch(token, `/projects/${projectId}/areas`);
-}
-
-export function listAreaStatuses(
-  token: string,
-  areaTypeId: string,
-): Promise<AreaStatusResponse[]> {
-  return authFetch(token, `/catalog/area-types/${areaTypeId}/statuses`);
-}
-
-export function updateProjectAreaStatus(
-  token: string,
-  projectId: string,
-  areaId: string,
-  statusId: string,
-): Promise<ProjectAreaResponse> {
-  return authFetch(token, `/projects/${projectId}/areas/${areaId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ status_id: statusId }),
-  });
 }
 
 export function getProjectTimeline(

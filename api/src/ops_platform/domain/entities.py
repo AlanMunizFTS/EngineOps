@@ -61,38 +61,6 @@ class ProjectMemberDetail:
 
 
 @dataclass(frozen=True, slots=True)
-class AreaType:
-    id: UUID
-    name: str
-    description: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class AreaStatus:
-    id: UUID
-    area_type_id: UUID
-    name: str
-    sort_order: int
-
-
-@dataclass(frozen=True, slots=True)
-class ProjectArea:
-    """A project's independent progress track for one area (Procurement, Electrical, ...).
-
-    Each project has one row per seeded AreaType, each with its own status - there is
-    deliberately no single project-wide `status` field, since areas progress
-    non-linearly and in parallel (see docs/architecture/adr/0001).
-    """
-
-    id: UUID
-    project_id: UUID
-    area_type: AreaType
-    status: AreaStatus
-    updated_by: UUID | None
-    updated_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
 class AuditLogEntry:
     id: UUID
     project_id: UUID

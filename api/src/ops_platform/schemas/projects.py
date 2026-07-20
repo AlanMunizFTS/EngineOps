@@ -40,27 +40,3 @@ class ProjectMemberDetailResponse(BaseModel):
     full_name: str
 
 
-class AreaTypeResponse(BaseModel):
-    id: UUID
-    name: str
-    description: str | None
-
-
-class AreaStatusResponse(BaseModel):
-    id: UUID
-    area_type_id: UUID
-    name: str
-    sort_order: int
-
-
-class ProjectAreaResponse(BaseModel):
-    id: UUID
-    project_id: UUID
-    area_type: AreaTypeResponse
-    status: AreaStatusResponse
-    updated_by: UUID | None
-    updated_at: datetime
-
-
-class ProjectAreaStatusUpdateRequest(BaseModel):
-    status_id: UUID

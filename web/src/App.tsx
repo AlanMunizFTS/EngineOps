@@ -9,7 +9,6 @@ import IssuesPage from "./pages/IssuesPage";
 import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
 import MilestonesPage from "./pages/MilestonesPage";
-import PhasePage from "./pages/PhasePage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -80,14 +79,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MilestonesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/projects/:projectId/phase/:statusId"
-        element={
-          <ProtectedRoute>
-            <PhasePage />
           </ProtectedRoute>
         }
       />

@@ -5,7 +5,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.sqlalchemy_area_repository import SqlAlchemyAreaRepository
 from ops_platform.adapters.db.sqlalchemy_audit_log_repository import (
     SqlAlchemyAuditLogRepository,
 )
@@ -24,7 +23,6 @@ from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRe
 from ops_platform.core.security import decode_access_token
 from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import User
-from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.issue_comment_repository import IssueCommentRepository
@@ -48,12 +46,6 @@ def get_project_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ProjectRepository:
     return SqlAlchemyProjectRepository(session)
-
-
-def get_area_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> AreaRepository:
-    return SqlAlchemyAreaRepository(session)
 
 
 def get_label_repository(

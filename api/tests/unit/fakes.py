@@ -11,17 +11,13 @@ from uuid import UUID
 
 from ops_platform.domain.entities import (
     ActivityEntry,
-    AreaStatus,
-    AreaType,
     AuditLogEntry,
     Project,
-    ProjectArea,
     ProjectMember,
     ProjectMemberDetail,
     ProjectRole,
     User,
 )
-from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.project_repository import ProjectRepository
@@ -112,65 +108,6 @@ class FakeProjectRepository(ProjectRepository):
                 )
             )
         return details
-
-
-class FakeAreaRepository(AreaRepository):
-    """Seeds a single "Scope & Charter" area type with two statuses - enough to
-    exercise default-area creation and a status transition without the full catalog."""
-
-    def __init__(self) -> None:
-        self._area_type = AreaType(
-            id=uuid.uuid4(), name="Scope & Charter", description="Defining scope"
-        )
-        self._statuses = [
-            AreaStatus(
-                id=uuid.uuid4(), area_type_id=self._area_type.id, name="Requested", sort_order=0
-            ),
-            AreaStatus(
-                id=uuid.uuid4(), area_type_id=self._area_type.id, name="Analyzing", sort_order=1
-            ),
-        ]
-        self._project_areas: dict[UUID, list[ProjectArea]] = {}
-
-    async def list_area_types(self) -> list[AreaType]:
-        return [self._area_type]
-
-    async def list_statuses_for_type(self, area_type_id: UUID) -> list[AreaStatus]:
-        return [status for status in self._statuses if status.area_type_id == area_type_id]
-
-    async def create_default_areas(self, project_id: UUID) -> list[ProjectArea]:
-        area = ProjectArea(
-            id=uuid.uuid4(),
-            project_id=project_id,
-            area_type=self._area_type,
-            status=self._statuses[0],
-            updated_by=None,
-            updated_at=datetime.now(UTC),
-        )
-        self._project_areas[project_id] = [area]
-        return [area]
-
-    async def list_for_project(self, project_id: UUID) -> list[ProjectArea]:
-        return self._project_areas.get(project_id, [])
-
-    async def update_status(
-        self, project_area_id: UUID, status_id: UUID, updated_by: UUID
-    ) -> ProjectArea:
-        for areas in self._project_areas.values():
-            for index, area in enumerate(areas):
-                if area.id == project_area_id:
-                    new_status = next(s for s in self._statuses if s.id == status_id)
-                    updated = ProjectArea(
-                        id=area.id,
-                        project_id=area.project_id,
-                        area_type=area.area_type,
-                        status=new_status,
-                        updated_by=updated_by,
-                        updated_at=datetime.now(UTC),
-                    )
-                    areas[index] = updated
-                    return updated
-        raise ValueError(f"project_area {project_area_id} not found")
 
 
 class FakeAuditLog(AuditRecorder, AuditLogRepository):

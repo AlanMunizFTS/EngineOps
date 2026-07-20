@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ops_platform.api.deps import (
-    get_area_repository,
     get_audit_log_repository,
     get_audit_recorder,
     get_current_user,
@@ -16,23 +15,17 @@ from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import (
     AuditLogEntry,
     Project,
-    ProjectArea,
     ProjectMember,
     ProjectMemberDetail,
     ProjectRole,
     User,
 )
-from ops_platform.domain.ports.area_repository import AreaRepository
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.schemas.audit import AuditLogEntryResponse
 from ops_platform.schemas.projects import (
-    AreaStatusResponse,
-    AreaTypeResponse,
-    ProjectAreaResponse,
-    ProjectAreaStatusUpdateRequest,
     ProjectCreateRequest,
     ProjectMemberAddRequest,
     ProjectMemberDetailResponse,
@@ -98,7 +91,6 @@ async def create_project(
     payload: ProjectCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    area_repo: Annotated[AreaRepository, Depends(get_area_repository)],
     kanban_repo: Annotated[KanbanRepository, Depends(get_kanban_repository)],
     audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
@@ -107,7 +99,6 @@ async def create_project(
         name=payload.name, description=payload.description, created_by=current_user.id
     )
     await project_repo.add_member(project.id, current_user.id, ProjectRole.OWNER)
-    await area_repo.create_default_areas(project.id)
     await kanban_repo.create_default_board(project.id)
     await audit.record(
         project_id=project.id,
@@ -173,74 +164,6 @@ async def list_project_members(
     await _get_project_or_404(project_repo, project_id)
     members = await project_repo.list_members_with_users(project_id)
     return [_member_detail_response(detail) for detail in members]
-
-
-def _area_response(area: ProjectArea) -> ProjectAreaResponse:
-    return ProjectAreaResponse(
-        id=area.id,
-        project_id=area.project_id,
-        area_type=AreaTypeResponse(
-            id=area.area_type.id, name=area.area_type.name, description=area.area_type.description
-        ),
-        status=AreaStatusResponse(
-            id=area.status.id,
-            area_type_id=area.status.area_type_id,
-            name=area.status.name,
-            sort_order=area.status.sort_order,
-        ),
-        updated_by=area.updated_by,
-        updated_at=area.updated_at,
-    )
-
-
-@router.get("/{project_id}/areas", response_model=list[ProjectAreaResponse])
-async def list_project_areas(
-    project_id: UUID,
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    area_repo: Annotated[AreaRepository, Depends(get_area_repository)],
-) -> list[ProjectAreaResponse]:
-    await _get_project_or_404(project_repo, project_id)
-    areas = await area_repo.list_for_project(project_id)
-    return [_area_response(area) for area in areas]
-
-
-@router.patch("/{project_id}/areas/{area_id}", response_model=ProjectAreaResponse)
-async def update_project_area_status(
-    project_id: UUID,
-    area_id: UUID,
-    payload: ProjectAreaStatusUpdateRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    area_repo: Annotated[AreaRepository, Depends(get_area_repository)],
-    audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ProjectAreaResponse:
-    await _get_project_or_404(project_repo, project_id)
-
-    existing = {area.id: area for area in await area_repo.list_for_project(project_id)}
-    current_area = existing.get(area_id)
-    if current_area is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Area not found")
-
-    try:
-        updated = await area_repo.update_status(area_id, payload.status_id, current_user.id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-    await audit.record(
-        project_id=project_id,
-        actor_id=current_user.id,
-        entity_type="project_area",
-        entity_id=area_id,
-        action="area.status_changed",
-        diff={
-            "area_type": updated.area_type.name,
-            "from": current_area.status.name,
-            "to": updated.status.name,
-        },
-    )
-    await session.commit()
-    return _area_response(updated)
 
 
 @router.get("/{project_id}/timeline", response_model=list[AuditLogEntryResponse])

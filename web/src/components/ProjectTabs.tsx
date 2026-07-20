@@ -1,8 +1,4 @@
-import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-
-import { listAreaStatuses, listProjectAreas, type AreaStatusResponse } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
 
 interface StaticTab {
   label: string;
@@ -11,7 +7,7 @@ interface StaticTab {
 }
 
 const LEADING_TABS: StaticTab[] = [
-  { label: "Code" },
+  { label: "Dashboard" },
   { label: "Issues", suffix: "issues" },
   { label: "Kanban", suffix: "kanban" },
   { label: "Milestones", suffix: "milestones" },
@@ -36,19 +32,7 @@ function TabLink({ to, isActive, label }: { to: string; isActive: boolean; label
 
 export default function ProjectTabs({ projectId }: { projectId: string }) {
   const location = useLocation();
-  const { token } = useAuth();
   const base = `/projects/${projectId}`;
-  const [phaseStatuses, setPhaseStatuses] = useState<AreaStatusResponse[]>([]);
-
-  useEffect(() => {
-    if (!token) return;
-    listProjectAreas(token, projectId).then(async (areas) => {
-      const current = areas[0];
-      if (current) {
-        setPhaseStatuses(await listAreaStatuses(token, current.area_type.id));
-      }
-    });
-  }, [token, projectId]);
 
   return (
     <div className="flex gap-1 border-b border-ink-800 px-8">
@@ -58,18 +42,6 @@ export default function ProjectTabs({ projectId }: { projectId: string }) {
           ? location.pathname.startsWith(to)
           : location.pathname === base;
         return <TabLink key={tab.label} to={to} isActive={isActive} label={tab.label} />;
-      })}
-
-      {phaseStatuses.map((status) => {
-        const to = `${base}/phase/${status.id}`;
-        return (
-          <TabLink
-            key={status.id}
-            to={to}
-            isActive={location.pathname === to}
-            label={status.name}
-          />
-        );
       })}
 
       {TRAILING_TABS.map((tab) => (

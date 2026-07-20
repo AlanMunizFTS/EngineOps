@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from ops_platform.domain.entities import User
 
 
-def test_create_project_creates_owner_membership_and_default_areas(
+def test_create_project_creates_owner_membership(
     client: TestClient, auth_headers: dict[str, str], current_user: User
 ) -> None:
     response = client.post(
@@ -19,10 +19,6 @@ def test_create_project_creates_owner_membership_and_default_areas(
     assert len(members) == 1
     assert members[0]["user_id"] == str(current_user.id)
     assert members[0]["project_role"] == "owner"
-
-    areas = client.get(f"/projects/{project_id}/areas", headers=auth_headers).json()
-    assert len(areas) == 1
-    assert areas[0]["status"]["name"] == "Requested"
 
 
 def test_create_project_records_audit_entry(
@@ -57,50 +53,6 @@ def test_add_project_member(client: TestClient, auth_headers: dict[str, str]) ->
 
     members = client.get(f"/projects/{project_id}/members", headers=auth_headers).json()
     assert len(members) == 2
-
-
-def test_update_project_area_status_records_audit_diff(
-    client: TestClient, auth_headers: dict[str, str], fake_audit_log: FakeAuditLog
-) -> None:
-    project_id = client.post(
-        "/projects", json={"name": "Line 7 Retrofit"}, headers=auth_headers
-    ).json()["id"]
-    areas = client.get(f"/projects/{project_id}/areas", headers=auth_headers).json()
-    area = areas[0]
-
-    statuses = client.get(
-        f"/catalog/area-types/{area['area_type']['id']}/statuses", headers=auth_headers
-    ).json()
-    next_status = next(s for s in statuses if s["name"] != area["status"]["name"])
-
-    response = client.patch(
-        f"/projects/{project_id}/areas/{area['id']}",
-        json={"status_id": next_status["id"]},
-        headers=auth_headers,
-    )
-    assert response.status_code == 200
-    assert response.json()["status"]["name"] == next_status["name"]
-
-    status_change = next(
-        entry for entry in fake_audit_log.entries if entry.action == "area.status_changed"
-    )
-    assert status_change.diff["from"] == area["status"]["name"]
-    assert status_change.diff["to"] == next_status["name"]
-
-
-def test_update_project_area_status_404_for_unknown_area(
-    client: TestClient, auth_headers: dict[str, str]
-) -> None:
-    project_id = client.post(
-        "/projects", json={"name": "Line 8 Retrofit"}, headers=auth_headers
-    ).json()["id"]
-
-    response = client.patch(
-        f"/projects/{project_id}/areas/{uuid.uuid4()}",
-        json={"status_id": str(uuid.uuid4())},
-        headers=auth_headers,
-    )
-    assert response.status_code == 404
 
 
 def test_timeline_is_chronological(client: TestClient, auth_headers: dict[str, str]) -> None:

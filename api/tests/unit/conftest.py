@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 
 import pytest
 from fakes import (
-    FakeAreaRepository,
     FakeAuditLog,
     FakeProjectRepository,
     FakeSession,
@@ -22,7 +21,6 @@ from fakes_issues import (
 from fastapi.testclient import TestClient
 
 from ops_platform.api.deps import (
-    get_area_repository,
     get_audit_log_repository,
     get_audit_recorder,
     get_issue_comment_repository,
@@ -51,11 +49,6 @@ def fake_user_repository() -> FakeUserRepository:
 @pytest.fixture
 def fake_project_repository(fake_user_repository: FakeUserRepository) -> FakeProjectRepository:
     return FakeProjectRepository(fake_user_repository)
-
-
-@pytest.fixture
-def fake_area_repository() -> FakeAreaRepository:
-    return FakeAreaRepository()
 
 
 @pytest.fixture
@@ -112,7 +105,6 @@ def auth_headers(current_user: User) -> dict[str, str]:
 def client(
     fake_user_repository: FakeUserRepository,
     fake_project_repository: FakeProjectRepository,
-    fake_area_repository: FakeAreaRepository,
     fake_audit_log: FakeAuditLog,
     fake_label_repository: FakeLabelRepository,
     fake_milestone_repository: FakeMilestoneRepository,
@@ -123,7 +115,6 @@ def client(
     app = create_app()
     app.dependency_overrides[get_user_repository] = lambda: fake_user_repository
     app.dependency_overrides[get_project_repository] = lambda: fake_project_repository
-    app.dependency_overrides[get_area_repository] = lambda: fake_area_repository
     app.dependency_overrides[get_audit_recorder] = lambda: fake_audit_log
     app.dependency_overrides[get_audit_log_repository] = lambda: fake_audit_log
     app.dependency_overrides[get_label_repository] = lambda: fake_label_repository
