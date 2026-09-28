@@ -1,7 +1,7 @@
 # EngineOps
 
 Multiuser, GitHub-inspired engineering operations platform for an industrial automation team:
-projects, machines, implementations, BOM/stock/quoting/procurement, issues/kanban/milestones,
+projects, machines, implementations, BOM/stock/quoting/procurement, issues/kanban,
 versioned documents and deliverables, and a full project audit trail/timeline.
 
 Being built incrementally by phase — see `.claude/claude_code_kickoff_prompt.md` for the full
@@ -16,8 +16,7 @@ docker compose up -d
 ```
 
 That's it — no manual `.env` editing required. `docker-compose.yml` defaults every variable
-(see `.env.example` for the values), Postgres and MinIO come up, `api-migrate` runs Alembic
-migrations, then the API and web app start.
+(see `.env.example` for the values), Postgres and MinIO come up, `api-migrate` runs Alembic migrations, then the API and web app start.
 
 - API: http://localhost:8000 (docs at `/docs`)
 - Web: http://localhost:5173
@@ -28,8 +27,8 @@ Docker Compose picks up `.env` automatically.
 
 ### First admin user
 
-`POST /auth/register` always creates a user with zero roles - there's no "first user becomes
-admin" magic. Bootstrap one explicitly:
+`POST /auth/register` and `POST /auth/users` require an authenticated user and create accounts
+with zero roles - there's no "first user becomes admin" magic. Bootstrap the first admin explicitly:
 
 ```bash
 docker compose exec api python utils/create_admin.py --email admin@example.com --password "change-me"
@@ -70,6 +69,52 @@ Creating a project auto-creates the creator as `owner` and one `project_area` pe
 type, all in one transaction. Role-based **enforcement** of `project_members` (who can actually
 write to a project) is deferred to Phase 7 per the kickoff spec — Phase 1 only establishes the
 membership data.
+
+## Moving to another computer
+
+The project only needs Docker Desktop on the destination machine — `web/node_modules` and
+`api/.venv` are never copied into the images (selective `COPY` in `api/Dockerfile`,
+`web/.dockerignore` excludes `node_modules`) and get rebuilt fresh from `pyproject.toml` /
+`package.json` on first `docker compose up --build`. Skip both folders (plus `__pycache__`,
+`.mypy_cache`, `.ruff_cache`, `.pytest_cache`, `web/dist`) when copying — the whole source tree
+without them is a couple MB.
+
+```powershell
+docker compose up -d --build
+docker compose exec api python utils/create_admin.py --email admin@example.com --password "change-me"
+```
+
+**The database is not part of the folder.** Postgres data lives in a Docker-managed named
+volume (`db_data`), not inside the repo tree, so copying/zipping the project never carries
+users/projects/issues with it — `docker compose up --build` alone gives you an empty,
+freshly-migrated schema. To bring existing data along, run on the **source** machine (stack must be up):
+
+```powershell
+.\scripts\export-data.ps1
+```
+
+This writes `EngineOps-data-backup.sql` to the repo root (git-ignored — it contains real
+password hashes, never commit it). It's a data-only dump (schema comes from Alembic) that
+also re-derives `user_roles` grants by role name rather than copying `roles.id` directly,
+since that ID is a random UUID the seed migrations regenerate on every fresh install and
+would never match the destination's. Copy that `.sql` file alongside the project, then on the
+destination machine, **after** `docker compose up -d --build` has finished (so the
+schema/migrations already exist):
+
+```powershell
+.\scripts\import-data.ps1
+```
+
+If `docker compose up` fails to bind a port (commonly `8000`), Windows may have it stuck in a
+Hyper-V/WSL2 reserved TCP range:
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+If so, copy `.env.example` to `.env` (or edit the existing `.env`) and set `API_PORT`/`WEB_PORT`
+to something outside the excluded range — Docker Compose picks up `.env` automatically, no
+other changes needed.
 
 ## Local development (without Docker)
 

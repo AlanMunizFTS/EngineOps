@@ -27,6 +27,14 @@ export function PlusIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function DownloadIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5v12m0 0 4.5-4.5M12 15.5 7.5 11M4.5 17.5v2a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
 export function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
@@ -133,47 +141,31 @@ export function BookIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
-export function EyeIcon({ className = "h-4 w-4" }: IconProps) {
+export function FileTextIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="2.75" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.5h7l4 4V19.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 3.5V8h4" />
+      <path strokeLinecap="round" d="M9 13h6M9 16.5h6" />
     </svg>
   );
 }
 
-export function StarIcon({ className = "h-4 w-4" }: IconProps) {
+export function LinkIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m12 3.5 2.6 5.4 5.9.8-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.8L12 3.5Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 14.5 14.5 9.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 6.5 12.5 5A3.54 3.54 0 0 1 17.5 10L16 11.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 17.5 11.5 19A3.54 3.54 0 0 1 6.5 14L8 12.5" />
     </svg>
   );
 }
 
-export function ForkIcon({ className = "h-4 w-4" }: IconProps) {
+export function TrashIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <circle cx="7" cy="6" r="2" />
-      <circle cx="17" cy="6" r="2" />
-      <circle cx="12" cy="18" r="2" />
-      <path strokeLinecap="round" d="M7 8v2a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V8M12 13v3" />
-    </svg>
-  );
-}
-
-export function LockIcon({ className = "h-3.5 w-3.5" }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <rect x="5" y="10.5" width="14" height="9.5" rx="1.5" />
-      <path strokeLinecap="round" d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}
-
-export function CodeBracketIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m9 8-4 4 4 4M15 8l4 4-4 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7m2 0v12.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 19.5V7h10Z" />
+      <path strokeLinecap="round" d="M10 11v6M14 11v6" />
     </svg>
   );
 }

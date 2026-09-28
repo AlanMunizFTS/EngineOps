@@ -3,17 +3,16 @@ import { Link, useLocation } from "react-router-dom";
 interface StaticTab {
   label: string;
   suffix?: string;
-  comingSoon?: boolean;
 }
 
-const LEADING_TABS: StaticTab[] = [
+const TABS: StaticTab[] = [
   { label: "Dashboard" },
   { label: "Issues", suffix: "issues" },
   { label: "Kanban", suffix: "kanban" },
-  { label: "Milestones", suffix: "milestones" },
+  { label: "Schedule", suffix: "schedule" },
+  { label: "Material", suffix: "material" },
+  { label: "Settings", suffix: "settings" },
 ];
-
-const TRAILING_TABS: StaticTab[] = [{ label: "Settings", comingSoon: true }];
 
 function TabLink({ to, isActive, label }: { to: string; isActive: boolean; label: string }) {
   return (
@@ -36,23 +35,13 @@ export default function ProjectTabs({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex gap-1 border-b border-ink-800 px-8">
-      {LEADING_TABS.map((tab) => {
+      {TABS.map((tab) => {
         const to = tab.suffix ? `${base}/${tab.suffix}` : base;
         const isActive = tab.suffix
           ? location.pathname.startsWith(to)
           : location.pathname === base;
         return <TabLink key={tab.label} to={to} isActive={isActive} label={tab.label} />;
       })}
-
-      {TRAILING_TABS.map((tab) => (
-        <span
-          key={tab.label}
-          title="Coming soon"
-          className="cursor-not-allowed px-3 py-3 text-sm text-slate-600"
-        >
-          {tab.label}
-        </span>
-      ))}
     </div>
   );
 }

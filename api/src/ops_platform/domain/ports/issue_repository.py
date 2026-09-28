@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import date
 from uuid import UUID
 
 from ops_platform.domain.entities import Issue, IssuePriority, IssueStatus, IssueType
@@ -20,8 +21,10 @@ class IssueRepository(ABC):
         issue_type: IssueType,
         priority: IssuePriority,
         created_by: UUID,
-        milestone_id: UUID | None,
         assignee_id: UUID | None,
+        parent_issue_id: UUID | None = None,
+        start_date: date | None = None,
+        due_date: date | None = None,
     ) -> Issue: ...
 
     @abstractmethod
@@ -35,7 +38,6 @@ class IssueRepository(ABC):
         status: IssueStatus | None = None,
         assignee_id: UUID | None = None,
         label_id: UUID | None = None,
-        milestone_id: UUID | None = None,
     ) -> list[Issue]: ...
 
     @abstractmethod
@@ -47,9 +49,23 @@ class IssueRepository(ABC):
         description: str | None,
         priority: IssuePriority,
         issue_type: IssueType,
-        milestone_id: UUID | None,
         assignee_id: UUID | None,
-    ) -> Issue: ...
+        parent_issue_id: UUID | None = None,
+        start_date: date | None = None,
+        due_date: date | None = None,
+        closed_at: date | None = None,
+    ) -> Issue:
+        """`closed_at` here is a manual correction (e.g. backfilling a close
+        date) - separate from the automatic stamping `set_status` does when
+        an issue actually moves to/from DONE.
+
+        `parent_assigned_at` is not a caller-supplied field: the
+        implementation stamps it internally whenever the resolved
+        `parent_issue_id` differs from what's currently stored (set on
+        change to a parent, cleared on change to None), the same
+        "caller doesn't manage this" pattern `set_status` uses for
+        `closed_at`."""
+        ...
 
     @abstractmethod
     async def set_status(self, issue_id: UUID, status: IssueStatus) -> Issue:
@@ -62,3 +78,6 @@ class IssueRepository(ABC):
 
     @abstractmethod
     async def detach_label(self, issue_id: UUID, label_id: UUID) -> Issue: ...
+
+    @abstractmethod
+    async def delete(self, issue_id: UUID) -> None: ...

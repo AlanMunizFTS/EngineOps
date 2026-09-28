@@ -35,6 +35,14 @@ class SqlAlchemyAuditLogRepository(AuditLogRepository):
         )
         return [_to_entity(row) for row in result.scalars().all()]
 
+    async def list_for_entity(self, entity_type: str, entity_id: UUID) -> list[AuditLogEntry]:
+        result = await self._session.execute(
+            select(AuditLogORM)
+            .where(AuditLogORM.entity_type == entity_type, AuditLogORM.entity_id == entity_id)
+            .order_by(AuditLogORM.occurred_at)
+        )
+        return [_to_entity(row) for row in result.scalars().all()]
+
     async def list_recent(self, limit: int) -> list[ActivityEntry]:
         result = await self._session.execute(
             select(AuditLogORM, ProjectORM.name)

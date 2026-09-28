@@ -168,6 +168,13 @@ export default function TopBar({ projects, onToggleSidebar, breadcrumb }: TopBar
               <p className="truncate border-b border-ink-700 px-3 py-2 text-sm text-slate-300">
                 {user?.email}
               </p>
+              <Link
+                to="/admin/users"
+                onClick={() => setIsMenuOpen(false)}
+                className="block w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-ink-800"
+              >
+                {user?.roles.includes("admin") ? "Admin: Users" : "Create user"}
+              </Link>
               <button
                 onClick={logout}
                 className="block w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-ink-800"

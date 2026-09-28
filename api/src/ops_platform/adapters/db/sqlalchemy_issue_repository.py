@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -29,11 +29,14 @@ def _to_entity(orm_issue: IssueORM) -> Issue:
         status=orm_issue.status,
         priority=orm_issue.priority,
         issue_type=orm_issue.issue_type,
-        milestone_id=orm_issue.milestone_id,
         assignee_id=orm_issue.assignee_id,
         created_by=orm_issue.created_by,
         created_at=orm_issue.created_at,
         closed_at=orm_issue.closed_at,
+        parent_issue_id=orm_issue.parent_issue_id,
+        parent_assigned_at=orm_issue.parent_assigned_at,
+        start_date=orm_issue.start_date,
+        due_date=orm_issue.due_date,
         labels=[_to_label(label) for label in orm_issue.labels],
     )
 
@@ -57,8 +60,10 @@ class SqlAlchemyIssueRepository(IssueRepository):
         issue_type: IssueType,
         priority: IssuePriority,
         created_by: UUID,
-        milestone_id: UUID | None,
         assignee_id: UUID | None,
+        parent_issue_id: UUID | None = None,
+        start_date: date | None = None,
+        due_date: date | None = None,
     ) -> Issue:
         orm_issue = IssueORM(
             project_id=project_id,
@@ -67,8 +72,11 @@ class SqlAlchemyIssueRepository(IssueRepository):
             issue_type=issue_type,
             priority=priority,
             created_by=created_by,
-            milestone_id=milestone_id,
             assignee_id=assignee_id,
+            parent_issue_id=parent_issue_id,
+            parent_assigned_at=datetime.now(UTC) if parent_issue_id is not None else None,
+            start_date=start_date,
+            due_date=due_date,
         )
         self._session.add(orm_issue)
         await self._session.flush()
@@ -86,15 +94,12 @@ class SqlAlchemyIssueRepository(IssueRepository):
         status: IssueStatus | None = None,
         assignee_id: UUID | None = None,
         label_id: UUID | None = None,
-        milestone_id: UUID | None = None,
     ) -> list[Issue]:
         query = select(IssueORM).where(IssueORM.project_id == project_id)
         if status is not None:
             query = query.where(IssueORM.status == status)
         if assignee_id is not None:
             query = query.where(IssueORM.assignee_id == assignee_id)
-        if milestone_id is not None:
-            query = query.where(IssueORM.milestone_id == milestone_id)
         if label_id is not None:
             query = query.join(IssueLabelORM, IssueLabelORM.issue_id == IssueORM.id).where(
                 IssueLabelORM.label_id == label_id
@@ -111,16 +116,28 @@ class SqlAlchemyIssueRepository(IssueRepository):
         description: str | None,
         priority: IssuePriority,
         issue_type: IssueType,
-        milestone_id: UUID | None,
         assignee_id: UUID | None,
+        parent_issue_id: UUID | None = None,
+        start_date: date | None = None,
+        due_date: date | None = None,
+        closed_at: date | None = None,
     ) -> Issue:
         orm_issue = await self._get_or_raise(issue_id)
         orm_issue.title = title
         orm_issue.description = description
         orm_issue.priority = priority
         orm_issue.issue_type = issue_type
-        orm_issue.milestone_id = milestone_id
         orm_issue.assignee_id = assignee_id
+        if parent_issue_id != orm_issue.parent_issue_id:
+            orm_issue.parent_assigned_at = (
+                datetime.now(UTC) if parent_issue_id is not None else None
+            )
+        orm_issue.parent_issue_id = parent_issue_id
+        orm_issue.start_date = start_date
+        orm_issue.due_date = due_date
+        orm_issue.closed_at = (
+            datetime.combine(closed_at, datetime.min.time(), tzinfo=UTC) if closed_at else None
+        )
         await self._session.flush()
         await self._session.refresh(orm_issue, attribute_names=["labels"])
         return _to_entity(orm_issue)
@@ -152,3 +169,8 @@ class SqlAlchemyIssueRepository(IssueRepository):
         await self._session.flush()
         await self._session.refresh(orm_issue, attribute_names=["labels"])
         return _to_entity(orm_issue)
+
+    async def delete(self, issue_id: UUID) -> None:
+        orm_issue = await self._get_or_raise(issue_id)
+        await self._session.delete(orm_issue)
+        await self._session.flush()

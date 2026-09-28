@@ -8,12 +8,15 @@ from ops_platform.api.deps import (
     get_audit_log_repository,
     get_audit_recorder,
     get_current_user,
+    get_file_tree_repository,
     get_kanban_repository,
     get_project_repository,
+    get_user_repository,
 )
 from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import (
     AuditLogEntry,
+    FileTreeNodeType,
     Project,
     ProjectMember,
     ProjectMemberDetail,
@@ -22,8 +25,10 @@ from ops_platform.domain.entities import (
 )
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.file_tree_repository import FileTreeRepository
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
+from ops_platform.domain.ports.user_repository import UserRepository
 from ops_platform.schemas.audit import AuditLogEntryResponse
 from ops_platform.schemas.projects import (
     ProjectCreateRequest,
@@ -31,9 +36,13 @@ from ops_platform.schemas.projects import (
     ProjectMemberDetailResponse,
     ProjectMemberResponse,
     ProjectResponse,
+    UserSummaryResponse,
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+SCOPE_MD_NAME = "SCOPE.md"
+_DEFAULT_SCOPE_MD_CONTENT = "# Scope\n\nNo scope defined yet."
 
 
 def _project_response(project: Project) -> ProjectResponse:
@@ -92,6 +101,7 @@ async def create_project(
     current_user: Annotated[User, Depends(get_current_user)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
     kanban_repo: Annotated[KanbanRepository, Depends(get_kanban_repository)],
+    file_tree_repo: Annotated[FileTreeRepository, Depends(get_file_tree_repository)],
     audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ProjectResponse:
@@ -100,6 +110,15 @@ async def create_project(
     )
     await project_repo.add_member(project.id, current_user.id, ProjectRole.OWNER)
     await kanban_repo.create_default_board(project.id)
+    await file_tree_repo.create_node(
+        project_id=project.id,
+        parent_id=None,
+        node_type=FileTreeNodeType.FILE,
+        name=SCOPE_MD_NAME,
+        url=None,
+        content=_DEFAULT_SCOPE_MD_CONTENT,
+        created_by=current_user.id,
+    )
     await audit.record(
         project_id=project.id,
         actor_id=current_user.id,
@@ -164,6 +183,48 @@ async def list_project_members(
     await _get_project_or_404(project_repo, project_id)
     members = await project_repo.list_members_with_users(project_id)
     return [_member_detail_response(detail) for detail in members]
+
+
+@router.get("/{project_id}/members/candidates", response_model=list[UserSummaryResponse])
+async def list_member_candidates(
+    project_id: UUID,
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+) -> list[UserSummaryResponse]:
+    """Users addable to this project: not already a member, and not an admin
+    (admins aren't assignable work - see the Schedule/Kanban assignee pickers,
+    which draw from the same project_members list)."""
+    await _get_project_or_404(project_repo, project_id)
+    existing_member_ids = {member.user_id for member in await project_repo.list_members(project_id)}
+    all_users = await user_repo.list_all()
+    return [
+        UserSummaryResponse(id=user.id, email=user.email, full_name=user.full_name)
+        for user in all_users
+        if user.id not in existing_member_ids
+        and not any(role.name == "admin" for role in user.roles)
+    ]
+
+
+@router.delete("/{project_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_project_member(
+    project_id: UUID,
+    user_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    await _get_project_or_404(project_repo, project_id)
+    await project_repo.remove_member(project_id, user_id)
+    await audit.record(
+        project_id=project_id,
+        actor_id=current_user.id,
+        entity_type="project_member",
+        entity_id=user_id,
+        action="member.removed",
+        diff={},
+    )
+    await session.commit()
 
 
 @router.get("/{project_id}/timeline", response_model=list[AuditLogEntryResponse])

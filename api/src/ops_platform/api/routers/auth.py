@@ -3,7 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ops_platform.api.deps import get_current_user, get_user_repository
-from ops_platform.core.security import create_access_token, hash_password, verify_password
+from ops_platform.core.security import (
+    create_access_token,
+    hash_password,
+    normalize_login_identifier,
+    verify_password,
+)
 from ops_platform.domain.entities import User
 from ops_platform.domain.ports.user_repository import UserRepository
 from ops_platform.schemas.auth import (
@@ -30,6 +35,26 @@ def _to_user_response(user: User) -> UserResponse:
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: RegisterRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+) -> UserResponse:
+    if await user_repository.get_by_email(payload.email) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    user = await user_repository.create(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        full_name=payload.full_name,
+    )
+    return _to_user_response(user)
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    payload: RegisterRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> UserResponse:
     if await user_repository.get_by_email(payload.email) is not None:
@@ -54,8 +79,13 @@ async def login(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
     )
 
-    user = await user_repository.get_by_email(payload.email)
-    if user is None or not verify_password(payload.password, user.hashed_password):
+    email = normalize_login_identifier(payload.email)
+    user = await user_repository.get_by_email(email)
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(payload.password, user.hashed_password)
+    ):
         raise invalid_credentials
 
     return TokenResponse(access_token=create_access_token(subject=user.email))

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class AuditLogEntryResponse(BaseModel):
     id: UUID
     project_id: UUID
-    actor_id: UUID
+    actor_id: UUID | None
     entity_type: str
     entity_id: UUID
     action: str
@@ -20,7 +20,7 @@ class ActivityEntryResponse(BaseModel):
     id: UUID
     project_id: UUID
     project_name: str
-    actor_id: UUID
+    actor_id: UUID | None
     entity_type: str
     entity_id: UUID
     action: str

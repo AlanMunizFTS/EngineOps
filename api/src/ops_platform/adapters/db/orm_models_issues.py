@@ -1,7 +1,7 @@
-"""ORM models for the issue-tracking bounded context: labels, milestones,
-issues, issue comments, and kanban boards/columns - split out from
-orm_models.py to keep that module under the ~400-line limit (CLAUDE.md §3).
-Shares the same `Base`/registry, so Alembic sees one combined metadata."""
+"""ORM models for the issue-tracking bounded context: labels, issues, issue
+comments, and kanban boards/columns - split out from orm_models.py to keep
+that module under the ~400-line limit (CLAUDE.md §3). Shares the same
+`Base`/registry, so Alembic sees one combined metadata."""
 
 import uuid
 from datetime import date, datetime
@@ -17,11 +17,12 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ops_platform.adapters.db.orm_models import Base, enum_values
-from ops_platform.domain.entities import IssuePriority, IssueStatus, IssueType, MilestoneStatus
+from ops_platform.domain.entities import IssuePriority, IssueStatus, IssueType
 
 
 class LabelORM(Base):
@@ -39,31 +40,6 @@ class LabelORM(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False)
-
-
-class MilestoneORM(Base):
-    __tablename__ = "milestones"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    project_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text(), nullable=True)
-    due_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
-    status: Mapped[MilestoneStatus] = mapped_column(
-        Enum(MilestoneStatus, name="milestone_status", values_callable=enum_values),
-        nullable=False,
-        default=MilestoneStatus.OPEN,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
 
 
 class IssueORM(Base):
@@ -95,19 +71,24 @@ class IssueORM(Base):
         nullable=False,
         default=IssueType.TASK,
     )
-    milestone_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True
-    )
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_by: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parent_issue_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("issues.id", ondelete="SET NULL"), nullable=True
+    )
+    parent_assigned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    start_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
 
     labels: Mapped[list[LabelORM]] = relationship(secondary="issue_labels", lazy="selectin")
 
@@ -137,8 +118,8 @@ class IssueCommentORM(Base):
         nullable=False,
         index=True,
     )
-    author_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     body: Mapped[str] = mapped_column(Text(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -148,8 +129,8 @@ class IssueCommentORM(Base):
 
 
 class KanbanBoardORM(Base):
-    """One board per project - see docs/architecture/adr/0004-issue-hierarchy-linking.md
-    for why columns are fixed rather than customizable in this phase."""
+    """A project can have any number of boards - see
+    docs/architecture/adr/0010-dynamic-kanban-boards.md."""
 
     __tablename__ = "kanban_boards"
 
@@ -160,12 +141,12 @@ class KanbanBoardORM(Base):
         PG_UUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     columns: Mapped[list["KanbanColumnORM"]] = relationship(
-        order_by="KanbanColumnORM.order_index", lazy="selectin"
+        order_by="KanbanColumnORM.order_index", lazy="selectin", cascade="all, delete-orphan"
     )
 
 
@@ -183,7 +164,10 @@ class KanbanColumnORM(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     order_index: Mapped[int] = mapped_column(Integer(), nullable=False, default=0)
-    maps_to_status: Mapped[IssueStatus] = mapped_column(
-        Enum(IssueStatus, name="issue_status", values_callable=enum_values, create_type=False),
+    maps_to_statuses: Mapped[list[IssueStatus]] = mapped_column(
+        ARRAY(
+            Enum(IssueStatus, name="issue_status", values_callable=enum_values, create_type=False)
+        ),
         nullable=False,
+        default=list,
     )

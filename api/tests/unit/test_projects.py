@@ -64,7 +64,7 @@ def test_timeline_is_chronological(client: TestClient, auth_headers: dict[str, s
         json={"name": "bug", "color": "#ff0000"},
         headers=auth_headers,
     )
-    client.post(f"/projects/{project_id}/milestones", json={"title": "v1.0"}, headers=auth_headers)
+    client.post(f"/projects/{project_id}/issues", json={"title": "First issue"}, headers=auth_headers)
 
     timeline = client.get(f"/projects/{project_id}/timeline", headers=auth_headers).json()
     occurred_ats = [entry["occurred_at"] for entry in timeline]
@@ -72,5 +72,5 @@ def test_timeline_is_chronological(client: TestClient, auth_headers: dict[str, s
     assert [entry["action"] for entry in timeline] == [
         "project.created",
         "label.created",
-        "milestone.created",
+        "issue.created",
     ]

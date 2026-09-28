@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
@@ -38,7 +39,7 @@ class Project:
     id: UUID
     name: str
     description: str | None
-    created_by: UUID
+    created_by: UUID | None
     created_at: datetime
 
 
@@ -64,7 +65,7 @@ class ProjectMemberDetail:
 class AuditLogEntry:
     id: UUID
     project_id: UUID
-    actor_id: UUID
+    actor_id: UUID | None
     entity_type: str
     entity_id: UUID
     action: str
@@ -82,9 +83,35 @@ class ActivityEntry:
     project_name: str
 
 
+class FileTreeNodeType(StrEnum):
+    FOLDER = "folder"
+    LINK = "link"
+    FILE = "file"
+
+
+@dataclass(frozen=True, slots=True)
+class FileTreeNode:
+    """A folder, a link, or a text file within a project's file tree - a
+    lightweight org structure, not a real filesystem. Links always carry a
+    `url`; files carry editable text `content`; folders carry neither.
+    `created_by` is nullable because SCOPE.md is auto-seeded on project
+    creation (and backfilled for pre-existing projects) with no human actor."""
+
+    id: UUID
+    project_id: UUID
+    parent_id: UUID | None
+    node_type: FileTreeNodeType
+    name: str
+    url: str | None
+    content: str | None
+    created_by: UUID | None
+    created_at: datetime
+
+
 class IssueStatus(StrEnum):
-    """Also the fixed vocabulary for kanban_columns.maps_to_status - see
-    docs/architecture/adr/0004-issue-hierarchy-linking.md."""
+    """Also the fixed vocabulary kanban_columns.maps_to_statuses draws from -
+    see docs/architecture/adr/0004-issue-hierarchy-linking.md and
+    docs/architecture/adr/0010-dynamic-kanban-boards.md."""
 
     BACKLOG = "backlog"
     TODO = "todo"
@@ -107,11 +134,6 @@ class IssueType(StrEnum):
     INCIDENT = "incident"
 
 
-class MilestoneStatus(StrEnum):
-    OPEN = "open"
-    CLOSED = "closed"
-
-
 @dataclass(frozen=True, slots=True)
 class Label:
     id: UUID
@@ -121,18 +143,26 @@ class Label:
 
 
 @dataclass(frozen=True, slots=True)
-class Milestone:
-    id: UUID
-    project_id: UUID
-    title: str
-    description: str | None
-    due_date: date | None
-    status: MilestoneStatus
-    created_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
 class Issue:
+    """`start_date`/`due_date` are optional scheduling fields for the project
+    Schedule (Gantt) view - see
+    docs/architecture/adr/0009-project-schedule-priority-score.md. An issue
+    with no `start_date`/`due_date` simply doesn't appear on the Gantt grid;
+    everything else about it works unchanged. `days_planned` is computed from
+    them at read time (see domain/scheduling.py), never stored.
+
+    `parent_issue_id` makes an issue a subtask of another issue in the same
+    project - see docs/architecture/adr/0011-issue-subtasks-and-history.md.
+    `stage` (a free-text Kanban-grouping field) was removed in the same ADR,
+    superseded by dynamic Kanban columns (ADR 0010).
+
+    `parent_assigned_at` stamps when `parent_issue_id` last changed (set,
+    cleared, or re-pointed) - not when the issue itself was created. Sibling
+    ordering in the Schedule view sorts children by this instead of
+    `created_at`, so un-linking a child and re-linking it later moves it to
+    the end of its new siblings rather than pinning it to its original
+    creation time - see docs/architecture/adr/0014-parent-assigned-at.md."""
+
     id: UUID
     project_id: UUID
     title: str
@@ -140,11 +170,14 @@ class Issue:
     status: IssueStatus
     priority: IssuePriority
     issue_type: IssueType
-    milestone_id: UUID | None
     assignee_id: UUID | None
-    created_by: UUID
+    created_by: UUID | None
     created_at: datetime
     closed_at: datetime | None
+    parent_issue_id: UUID | None = None
+    parent_assigned_at: datetime | None = None
+    start_date: date | None = None
+    due_date: date | None = None
     labels: list[Label] = field(default_factory=list)
 
 
@@ -152,7 +185,7 @@ class Issue:
 class IssueComment:
     id: UUID
     issue_id: UUID
-    author_id: UUID
+    author_id: UUID | None
     body: str
     created_at: datetime
     edited_at: datetime | None
@@ -160,20 +193,102 @@ class IssueComment:
 
 @dataclass(frozen=True, slots=True)
 class KanbanColumn:
+    """`maps_to_statuses` drives card membership - a column shows every issue
+    whose `status` is in this list. Empty means the column never shows any
+    card (allowed, e.g. as a placeholder while setting up a new board). A
+    column mapping to more than one status aggregates them into one visual
+    lane; dragging a card into it sets the issue's status to the first entry
+    - see docs/architecture/adr/0010-dynamic-kanban-boards.md."""
+
     id: UUID
     board_id: UUID
     name: str
     order_index: int
-    maps_to_status: IssueStatus
+    maps_to_statuses: list[IssueStatus] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
 class KanbanBoard:
-    """One board per project, seeded automatically on project creation with 5
-    fixed columns mirroring `IssueStatus` - customizable columns are a later
-    polish item (see docs/architecture/adr/0004-issue-hierarchy-linking.md)."""
+    """A project can have any number of boards, each an independent,
+    freely-named view with its own columns - see
+    docs/architecture/adr/0010-dynamic-kanban-boards.md (supersedes the fixed
+    single-board design from ADR 0004). `create_default_board` still seeds one
+    board with 5 status-mapped columns automatically on project creation."""
 
     id: UUID
     project_id: UUID
     name: str
     columns: list[KanbanColumn] = field(default_factory=list)
+
+
+class PieceStatus(StrEnum):
+    OK = "ok"
+    NOK = "nok"
+
+
+@dataclass(frozen=True, slots=True)
+class PartNumber:
+    id: UUID
+    project_id: UUID
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class PieceCondition:
+    id: UUID
+    project_id: UUID
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class PieceLocation:
+    id: UUID
+    project_id: UUID
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class MeasurementType:
+    """A reusable numeric measurement definition (e.g. "Split Width", mm).
+    `condition_id`/`part_number_id`/`status` independently scope which pieces
+    it applies to - all null means it applies to every piece regardless of
+    status/condition/part number (e.g. external diameter). Any combination is
+    valid: e.g. a specific part number regardless of status/condition, a
+    condition regardless of part number, or a part number scoped to just OK
+    or just NOK pieces."""
+
+    id: UUID
+    project_id: UUID
+    name: str
+    unit: str
+    condition_id: UUID | None
+    part_number_id: UUID | None
+    status: PieceStatus | None
+
+
+@dataclass(frozen=True, slots=True)
+class PieceMeasurement:
+    id: UUID
+    piece_id: UUID
+    measurement_type_id: UUID
+    value: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class Piece:
+    """A single inspected piece, stamped with a unique `tracking_number`
+    (uppercase hex, zero-padded to 6 chars) at registration so it can be
+    followed through the process. Conditions are a general tag set, not
+    exclusive to NOK pieces - see docs plan for Material/Piece traceability."""
+
+    id: UUID
+    project_id: UUID
+    tracking_number: str
+    part_number_id: UUID
+    overall_status: PieceStatus
+    location_id: UUID | None
+    notes: str | None
+    created_by: UUID | None
+    created_at: datetime
+    conditions: list[PieceCondition] = field(default_factory=list)
+    measurements: list[PieceMeasurement] = field(default_factory=list)

@@ -31,3 +31,6 @@ class ProjectRepository(ABC):
         """Same as list_members, joined with each member's email/full_name -
         the Contributors panel needs a human-readable name, not a bare user_id."""
         ...
+
+    @abstractmethod
+    async def remove_member(self, project_id: UUID, user_id: UUID) -> None: ...

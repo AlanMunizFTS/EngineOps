@@ -41,8 +41,11 @@ export default function LoginPage() {
 
         <div className="space-y-3">
           <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            autoCapitalize="off"
+            autoCorrect="off"
+            placeholder="Username or email"
+            title="Username (e.g. jdoe) or full email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

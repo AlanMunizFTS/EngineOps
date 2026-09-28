@@ -1,8 +1,10 @@
-import type { ProjectMemberDetailResponse } from "../api/client";
+import type { AuditLogEntryResponse, ProjectMemberDetailResponse } from "../api/client";
+import ProjectTimeline from "./ProjectTimeline";
 
 interface ProjectAboutProps {
   description: string | null;
   members: ProjectMemberDetailResponse[];
+  timeline: AuditLogEntryResponse[];
 }
 
 function MemberAvatar({ email }: { email: string }) {
@@ -13,7 +15,7 @@ function MemberAvatar({ email }: { email: string }) {
   );
 }
 
-export default function ProjectAbout({ description, members }: ProjectAboutProps) {
+export default function ProjectAbout({ description, members, timeline }: ProjectAboutProps) {
   return (
     <aside className="w-full flex-shrink-0 space-y-5 lg:w-72">
       <div>
@@ -52,6 +54,10 @@ export default function ProjectAbout({ description, members }: ProjectAboutProps
           No deliverables published.{" "}
           <span className="text-slate-600">Coming in Phase 3.</span>
         </p>
+      </div>
+
+      <div id="timeline" className="border-t border-ink-800 pt-4">
+        <ProjectTimeline entries={timeline} />
       </div>
     </aside>
   );

@@ -9,15 +9,16 @@ from ops_platform.adapters.db.sqlalchemy_audit_log_repository import (
     SqlAlchemyAuditLogRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_audit_recorder import SqlAlchemyAuditRecorder
+from ops_platform.adapters.db.sqlalchemy_file_tree_repository import (
+    SqlAlchemyFileTreeRepository,
+)
 from ops_platform.adapters.db.sqlalchemy_issue_comment_repository import (
     SqlAlchemyIssueCommentRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_issue_repository import SqlAlchemyIssueRepository
 from ops_platform.adapters.db.sqlalchemy_kanban_repository import SqlAlchemyKanbanRepository
 from ops_platform.adapters.db.sqlalchemy_label_repository import SqlAlchemyLabelRepository
-from ops_platform.adapters.db.sqlalchemy_milestone_repository import (
-    SqlAlchemyMilestoneRepository,
-)
+from ops_platform.adapters.db.sqlalchemy_piece_repository import SqlAlchemyPieceRepository
 from ops_platform.adapters.db.sqlalchemy_project_repository import SqlAlchemyProjectRepository
 from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from ops_platform.core.security import decode_access_token
@@ -25,11 +26,12 @@ from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import User
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.file_tree_repository import FileTreeRepository
 from ops_platform.domain.ports.issue_comment_repository import IssueCommentRepository
 from ops_platform.domain.ports.issue_repository import IssueRepository
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.label_repository import LabelRepository
-from ops_platform.domain.ports.milestone_repository import MilestoneRepository
+from ops_platform.domain.ports.piece_repository import PieceRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
@@ -54,12 +56,6 @@ def get_label_repository(
     return SqlAlchemyLabelRepository(session)
 
 
-def get_milestone_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> MilestoneRepository:
-    return SqlAlchemyMilestoneRepository(session)
-
-
 def get_issue_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> IssueRepository:
@@ -76,6 +72,18 @@ def get_kanban_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> KanbanRepository:
     return SqlAlchemyKanbanRepository(session)
+
+
+def get_piece_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PieceRepository:
+    return SqlAlchemyPieceRepository(session)
+
+
+def get_file_tree_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> FileTreeRepository:
+    return SqlAlchemyFileTreeRepository(session)
 
 
 def get_audit_recorder(
@@ -105,6 +113,16 @@ async def get_current_user(
         raise credentials_error from exc
 
     user = await user_repository.get_by_email(email)
-    if user is None:
+    if user is None or not user.is_active:
         raise credentials_error
     return user
+
+
+async def get_current_admin_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    if not any(role.name == "admin" for role in current_user.roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
+    return current_user

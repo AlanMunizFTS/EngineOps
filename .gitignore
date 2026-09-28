@@ -21,6 +21,9 @@ web/tsconfig.tsbuildinfo
 .env.*
 !.env.example
 
+# Data exports (scripts/export-data.ps1) - real user data, never committed
+EngineOps-data-backup.sql
+
 # Docker
 *.pid
 

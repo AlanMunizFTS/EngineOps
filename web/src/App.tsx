@@ -2,14 +2,17 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import AllProjectsPage from "./pages/AllProjectsPage";
 import HomePage from "./pages/HomePage";
 import IssueDetailPage from "./pages/IssueDetailPage";
 import IssuesPage from "./pages/IssuesPage";
 import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
-import MilestonesPage from "./pages/MilestonesPage";
+import MaterialPage from "./pages/MaterialPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
+import SchedulePage from "./pages/SchedulePage";
+import SettingsPage from "./pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token, isLoading } = useAuth();
@@ -75,10 +78,34 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/projects/:projectId/milestones"
+        path="/projects/:projectId/schedule"
         element={
           <ProtectedRoute>
-            <MilestonesPage />
+            <SchedulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/material"
+        element={
+          <ProtectedRoute>
+            <MaterialPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute>
+            <AdminUsersPage />
           </ProtectedRoute>
         }
       />

@@ -6,13 +6,11 @@ import {
   createIssue,
   listProjectIssues,
   listProjectLabels,
-  listProjectMilestones,
   type IssuePriority,
   type IssueResponse,
   type IssueStatus,
   type IssueType,
   type LabelResponse,
-  type MilestoneProgressResponse,
 } from "../api/client_issues";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
@@ -28,10 +26,8 @@ export default function IssuesPage() {
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [labels, setLabels] = useState<LabelResponse[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneProgressResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<IssueStatus | "">("");
   const [labelFilter, setLabelFilter] = useState("");
-  const [milestoneFilter, setMilestoneFilter] = useState("");
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [title, setTitle] = useState("");
   const [issueType, setIssueType] = useState<IssueType>("task");
@@ -41,25 +37,22 @@ export default function IssuesPage() {
   useEffect(() => {
     if (token && projectId) void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, projectId, statusFilter, labelFilter, milestoneFilter]);
+  }, [token, projectId, statusFilter, labelFilter]);
 
   async function loadAll() {
     if (!token || !projectId) return;
     try {
-      const [projectData, issueData, labelData, milestoneData] = await Promise.all([
+      const [projectData, issueData, labelData] = await Promise.all([
         getProject(token, projectId),
         listProjectIssues(token, projectId, {
           status: statusFilter || undefined,
           label_id: labelFilter || undefined,
-          milestone_id: milestoneFilter || undefined,
         }),
         listProjectLabels(token, projectId),
-        listProjectMilestones(token, projectId),
       ]);
       setProject(projectData);
       setIssues(issueData);
       setLabels(labelData);
-      setMilestones(milestoneData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load issues");
     }
@@ -117,19 +110,6 @@ export default function IssuesPage() {
             {labels.map((label) => (
               <option key={label.id} value={label.id}>
                 {label.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={milestoneFilter}
-            onChange={(e) => setMilestoneFilter(e.target.value)}
-            className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
-          >
-            <option value="">All milestones</option>
-            {milestones.map((milestone) => (
-              <option key={milestone.id} value={milestone.id}>
-                {milestone.title}
               </option>
             ))}
           </select>

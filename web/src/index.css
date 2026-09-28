@@ -15,3 +15,45 @@
     @apply bg-ember-500/30 text-white;
   }
 }
+
+@layer components {
+  .markdown-body h1 {
+    @apply mb-3 mt-6 border-b border-ink-800 pb-2 text-xl font-semibold text-slate-100 first:mt-0;
+  }
+  .markdown-body h2 {
+    @apply mb-2 mt-5 text-lg font-semibold text-slate-100 first:mt-0;
+  }
+  .markdown-body h3 {
+    @apply mb-2 mt-4 text-base font-semibold text-slate-100 first:mt-0;
+  }
+  .markdown-body p {
+    @apply my-3 text-sm leading-relaxed text-slate-300;
+  }
+  .markdown-body ul {
+    @apply my-3 list-disc space-y-1 pl-5 text-sm text-slate-300;
+  }
+  .markdown-body ol {
+    @apply my-3 list-decimal space-y-1 pl-5 text-sm text-slate-300;
+  }
+  .markdown-body strong {
+    @apply font-semibold text-slate-100;
+  }
+  .markdown-body a {
+    @apply text-ember-400 underline transition-colors hover:text-ember-300;
+  }
+  .markdown-body code {
+    @apply rounded bg-ink-800 px-1.5 py-0.5 text-xs text-slate-200;
+  }
+  .markdown-body pre {
+    @apply my-3 overflow-x-auto rounded-md border border-ink-800 bg-ink-950 p-3;
+  }
+  .markdown-body pre code {
+    @apply bg-transparent p-0;
+  }
+  .markdown-body blockquote {
+    @apply my-3 border-l-2 border-ink-700 pl-3 text-sm italic text-slate-400;
+  }
+  .markdown-body hr {
+    @apply my-4 border-ink-800;
+  }
+}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ops_platform.adapters.db.orm_models import ProjectMemberORM, ProjectORM, UserORM
@@ -80,3 +80,12 @@ class SqlAlchemyProjectRepository(ProjectRepository):
             ProjectMemberDetail(member=_to_member(orm_member), email=email, full_name=full_name)
             for orm_member, email, full_name in result.all()
         ]
+
+    async def remove_member(self, project_id: UUID, user_id: UUID) -> None:
+        await self._session.execute(
+            delete(ProjectMemberORM).where(
+                ProjectMemberORM.project_id == project_id,
+                ProjectMemberORM.user_id == user_id,
+            )
+        )
+        await self._session.flush()

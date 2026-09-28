@@ -30,3 +30,17 @@ def decode_access_token(token: str) -> str:
     settings = get_settings()
     payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     return payload["sub"]
+
+
+DEFAULT_LOGIN_DOMAIN = "martinrea.com"
+
+
+def normalize_login_identifier(identifier: str, default_domain: str = DEFAULT_LOGIN_DOMAIN) -> str:
+    """Lets users log in with just the part before the @ - "jdoe" resolves
+    to "jdoe@martinrea.com". An identifier that already contains an "@" is
+    used as-is, so accounts on other domains (test/seed accounts, etc.)
+    still log in with their full email unchanged."""
+    identifier = identifier.strip()
+    if "@" in identifier:
+        return identifier
+    return f"{identifier}@{default_domain}"
