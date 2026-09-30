@@ -3,12 +3,18 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { ProjectMemberDetailResponse } from "../api/client";
-import type { IssueResponse, IssueStatus, KanbanColumnResponse } from "../api/client_issues";
-import { PriorityBadge, PriorityScoreChip, STATUS_LABELS } from "./IssueBadges";
+import type {
+  IssuePriority,
+  IssueResponse,
+  IssueStatus,
+  KanbanColumnResponse,
+} from "../api/client_issues";
+import { PRIORITY_COLORS, PriorityScoreChip, STATUS_LABELS } from "./IssueBadges";
 import { PlusIcon, TrashIcon } from "./icons";
 import Modal, { ModalActions } from "./Modal";
 
 const ALL_STATUSES: IssueStatus[] = ["backlog", "todo", "in_progress", "in_review", "done"];
+const PRIORITY_OPTIONS: IssuePriority[] = ["low", "medium", "high", "urgent"];
 
 // Highest Priority Score first, so the card that most needs attention is
 // always the top one in its column. Cards with no score (done, or no
@@ -32,22 +38,20 @@ function compareCards(a: IssueResponse, b: IssueResponse): number {
   return dueA.localeCompare(dueB);
 }
 
-function initials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  return parts
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 function KanbanCard({
   issue,
   projectId,
   assigneeName,
+  members,
+  onUpdateIssue,
+  isSubtask = false,
 }: {
   issue: IssueResponse;
   projectId: string;
   assigneeName: string | null;
+  members: ProjectMemberDetailResponse[];
+  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
+  isSubtask?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: issue.id,
@@ -63,6 +67,8 @@ function KanbanCard({
       {...listeners}
       {...attributes}
       className={`cursor-grab space-y-1 rounded-md border border-ink-700 bg-ink-800 p-2 text-sm active:cursor-grabbing ${
+        isSubtask ? "ml-2 border-l-2 border-l-ember-500" : ""
+      } ${
         isDragging ? "z-10 opacity-70" : ""
       }`}
     >
@@ -73,24 +79,49 @@ function KanbanCard({
       >
         {issue.title}
       </Link>
-      <div className="flex items-center gap-1">
-        <PriorityBadge priority={issue.priority} />
+      <div
+        className="flex items-center gap-1"
+        // The card itself is draggable; stop these controls from starting a
+        // drag so clicking a badge opens its selector normally.
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <select
+          value={issue.priority}
+          onChange={(event) =>
+            onUpdateIssue(issue.id, { priority: event.target.value as IssuePriority })
+          }
+          aria-label={`Priority for ${issue.title}`}
+          title="Change priority"
+          className={`cursor-pointer appearance-none rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none focus:ring-1 focus:ring-ember-500 ${PRIORITY_COLORS[issue.priority]}`}
+        >
+          {PRIORITY_OPTIONS.map((priority) => (
+            <option key={priority} value={priority} className="bg-ink-900 text-slate-200">
+              {priority}
+            </option>
+          ))}
+        </select>
         <span className="text-xs text-slate-500">{issue.issue_type}</span>
-        {issue.priority_score !== null && (
-          <span className="ml-auto">
-            <PriorityScoreChip score={issue.priority_score} />
-          </span>
-        )}
-        {assigneeName && (
-          <span
-            title={assigneeName}
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[10px] font-medium text-slate-300 ${
-              issue.priority_score === null ? "ml-auto" : ""
-            }`}
-          >
-            {initials(assigneeName)}
-          </span>
-        )}
+        <span className="ml-auto flex min-w-0 items-center gap-1">
+          {issue.priority_score !== null && <PriorityScoreChip score={issue.priority_score} />}
+        <select
+          value={issue.assignee_id ?? ""}
+          onChange={(event) => onUpdateIssue(issue.id, { assignee_id: event.target.value || null })}
+          aria-label={`Responsible person for ${issue.title}`}
+          title={assigneeName ?? "Unassigned"}
+          className="max-w-24 cursor-pointer appearance-none truncate rounded-full border-0 bg-ink-700 px-2 py-0.5 text-xs font-medium text-slate-300 outline-none focus:ring-1 focus:ring-ember-500"
+        >
+          <option value="" className="bg-ink-900 text-slate-200">Unassigned</option>
+          {members.map((member) => (
+            <option
+              key={member.user_id}
+              value={member.user_id}
+              className="bg-ink-900 text-slate-200"
+            >
+              {member.full_name}
+            </option>
+          ))}
+        </select>
+        </span>
       </div>
     </div>
   );
@@ -133,6 +164,9 @@ function KanbanColumnView({
   issues,
   projectId,
   assigneeNameById,
+  issueById,
+  members,
+  onUpdateIssue,
   onRenameColumn,
   onDeleteColumn,
 }: {
@@ -140,6 +174,9 @@ function KanbanColumnView({
   issues: IssueResponse[];
   projectId: string;
   assigneeNameById: Map<string, string>;
+  issueById: Map<string, IssueResponse>;
+  members: ProjectMemberDetailResponse[];
+  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
   onRenameColumn: (columnId: string, name: string, mapsToStatuses: IssueStatus[]) => void;
   onDeleteColumn: (columnId: string) => void;
 }) {
@@ -153,6 +190,25 @@ function KanbanColumnView({
     onRenameColumn(column.id, name.trim(), statuses);
     setIsEditing(false);
   }
+
+  // Parents are schedule rollups and therefore don't have a Kanban status of
+  // their own. Group their child cards beneath a title in each column instead
+  // of hiding the parent relationship altogether.
+  const cardGroups = useMemo(() => {
+    const groups = new Map<string, { parent: IssueResponse | null; issues: IssueResponse[] }>();
+
+    for (const issue of issues) {
+      const parent = issue.parent_issue_id ? (issueById.get(issue.parent_issue_id) ?? null) : null;
+      const key = parent ? parent.id : issue.id;
+      const group = groups.get(key) ?? { parent, issues: [] };
+      group.issues.push(issue);
+      groups.set(key, group);
+    }
+
+    return [...groups.values()]
+      .map((group) => ({ ...group, issues: group.issues.sort(compareCards) }))
+      .sort((a, b) => compareCards(a.issues[0], b.issues[0]));
+  }, [issues, issueById]);
 
   return (
     <div
@@ -205,14 +261,30 @@ function KanbanColumnView({
           </span>
         </h3>
       )}
-      <div className="min-h-16 flex-1 space-y-2">
-        {issues.map((issue) => (
-          <KanbanCard
-            key={issue.id}
-            issue={issue}
-            projectId={projectId}
-            assigneeName={issue.assignee_id ? (assigneeNameById.get(issue.assignee_id) ?? null) : null}
-          />
+      <div className="min-h-16 flex-1 space-y-3">
+        {cardGroups.map((group) => (
+          <div key={group.parent?.id ?? group.issues[0].id} className="space-y-2">
+            {group.parent && (
+              <Link
+                to={`/projects/${projectId}/issues/${group.parent.id}`}
+                className="block truncate border-b border-ink-700 px-1 pb-1 text-xs font-semibold text-slate-400 hover:text-ember-400"
+                title={group.parent.title}
+              >
+                {group.parent.title}
+              </Link>
+            )}
+            {group.issues.map((issue) => (
+              <KanbanCard
+                key={issue.id}
+                issue={issue}
+                projectId={projectId}
+                assigneeName={issue.assignee_id ? (assigneeNameById.get(issue.assignee_id) ?? null) : null}
+                members={members}
+                onUpdateIssue={onUpdateIssue}
+                isSubtask={group.parent !== null}
+              />
+            ))}
+          </div>
         ))}
       </div>
     </div>
@@ -283,6 +355,7 @@ export default function KanbanBoard({
   members,
   projectId,
   onMoveIssue,
+  onUpdateIssue,
   onCreateColumn,
   onRenameColumn,
   onDeleteColumn,
@@ -292,6 +365,7 @@ export default function KanbanBoard({
   members: ProjectMemberDetailResponse[];
   projectId: string;
   onMoveIssue: (issueId: string, status: IssueStatus) => void;
+  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
   onCreateColumn: (name: string, mapsToStatuses: IssueStatus[]) => void;
   onRenameColumn: (columnId: string, name: string, mapsToStatuses: IssueStatus[]) => void;
   onDeleteColumn: (columnId: string) => void;
@@ -303,6 +377,7 @@ export default function KanbanBoard({
     () => new Map(members.map((member) => [member.user_id, member.full_name])),
     [members],
   );
+  const issueById = useMemo(() => new Map(issues.map((issue) => [issue.id, issue])), [issues]);
 
   // Parent issues track progress via the Schedule rollup, not a status of
   // their own - they never show up as Kanban cards.
@@ -343,6 +418,9 @@ export default function KanbanBoard({
               .sort(compareCards)}
             projectId={projectId}
             assigneeNameById={assigneeNameById}
+            issueById={issueById}
+            members={members}
+            onUpdateIssue={onUpdateIssue}
             onRenameColumn={onRenameColumn}
             onDeleteColumn={onDeleteColumn}
           />

@@ -15,7 +15,9 @@ import {
   listKanbanBoards,
   listProjectIssues,
   renameKanbanBoard,
+  updateIssue,
   updateIssueStatus,
+  type IssuePriority,
   updateKanbanColumn,
   type IssueResponse,
   type IssueStatus,
@@ -71,10 +73,23 @@ export default function KanbanPage() {
 
   const filteredIssues = useMemo(() => {
     if (!assigneeFilter) return issues;
-    if (assigneeFilter === UNASSIGNED_FILTER_VALUE) {
-      return issues.filter((issue) => issue.assignee_id === null);
+    const matches = issues.filter((issue) =>
+      assigneeFilter === UNASSIGNED_FILTER_VALUE
+        ? issue.assignee_id === null
+        : issue.assignee_id === assigneeFilter,
+    );
+    // Preserve the parent titles of matching subtasks so the hierarchy is
+    // still understandable while filtering by responsible person.
+    const issueById = new Map(issues.map((issue) => [issue.id, issue]));
+    const includedIds = new Set(matches.map((issue) => issue.id));
+    for (const issue of matches) {
+      let parentId = issue.parent_issue_id;
+      while (parentId && !includedIds.has(parentId)) {
+        includedIds.add(parentId);
+        parentId = issueById.get(parentId)?.parent_issue_id ?? null;
+      }
     }
-    return issues.filter((issue) => issue.assignee_id === assigneeFilter);
+    return issues.filter((issue) => includedIds.has(issue.id));
   }, [issues, assigneeFilter]);
 
   async function handleMoveIssue(issueId: string, status: IssueStatus) {
@@ -88,6 +103,36 @@ export default function KanbanPage() {
     } catch (err) {
       setIssues(previous);
       setError(err instanceof Error ? err.message : "Failed to move issue");
+    }
+  }
+
+  async function handleUpdateIssue(
+    issueId: string,
+    fields: { assignee_id?: string | null; priority?: IssuePriority },
+  ) {
+    if (!token) return;
+    const issue = issues.find((candidate) => candidate.id === issueId);
+    if (!issue) return;
+    const previous = issues;
+    setIssues((current) =>
+      current.map((candidate) => (candidate.id === issueId ? { ...candidate, ...fields } : candidate)),
+    );
+    try {
+      const updated = await updateIssue(token, issueId, {
+        title: issue.title,
+        description: issue.description,
+        issue_type: issue.issue_type,
+        priority: fields.priority ?? issue.priority,
+        assignee_id: "assignee_id" in fields ? (fields.assignee_id ?? null) : issue.assignee_id,
+        parent_issue_id: issue.parent_issue_id,
+        start_date: issue.start_date,
+        due_date: issue.due_date,
+        closed_at: issue.closed_at_date,
+      });
+      setIssues((current) => current.map((candidate) => (candidate.id === issueId ? updated : candidate)));
+    } catch (err) {
+      setIssues(previous);
+      setError(err instanceof Error ? err.message : "Failed to update issue");
     }
   }
 
@@ -279,6 +324,7 @@ export default function KanbanPage() {
             members={members}
             projectId={project.id}
             onMoveIssue={handleMoveIssue}
+            onUpdateIssue={handleUpdateIssue}
             onCreateColumn={handleCreateColumn}
             onRenameColumn={handleRenameColumn}
             onDeleteColumn={handleDeleteColumn}
