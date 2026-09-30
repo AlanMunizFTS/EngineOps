@@ -108,6 +108,18 @@ class SqlAlchemyIssueRepository(IssueRepository):
         result = await self._session.execute(query)
         return [_to_entity(row) for row in result.scalars().all()]
 
+    async def list_pending_for_assignee(self, assignee_id: UUID) -> list[Issue]:
+        query = (
+            select(IssueORM)
+            .where(
+                IssueORM.assignee_id == assignee_id,
+                IssueORM.status != IssueStatus.DONE,
+            )
+            .order_by(IssueORM.created_at.desc())
+        )
+        result = await self._session.execute(query)
+        return [_to_entity(row) for row in result.scalars().all()]
+
     async def update(
         self,
         issue_id: UUID,

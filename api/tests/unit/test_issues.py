@@ -491,6 +491,50 @@ def test_issue_history_tracks_status_transitions(
     assert all(e["entity_id"] == issue["id"] for e in history)
 
 
+def test_my_pending_issues_span_projects_and_only_include_current_user(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    current_user,
+) -> None:
+    first_project_id = _create_project(client, auth_headers)
+    second_project_id = _create_project(client, auth_headers)
+
+    first = client.post(
+        f"/projects/{first_project_id}/issues",
+        json={"title": "First assigned task", "assignee_id": str(current_user.id)},
+        headers=auth_headers,
+    ).json()
+    second = client.post(
+        f"/projects/{second_project_id}/issues",
+        json={"title": "Second assigned task", "assignee_id": str(current_user.id)},
+        headers=auth_headers,
+    ).json()
+    client.post(
+        f"/projects/{first_project_id}/issues",
+        json={"title": "Unassigned task"},
+        headers=auth_headers,
+    )
+    completed = client.post(
+        f"/projects/{second_project_id}/issues",
+        json={"title": "Completed task", "assignee_id": str(current_user.id)},
+        headers=auth_headers,
+    ).json()
+    client.patch(
+        f"/issues/{completed['id']}/status",
+        json={"status": "done"},
+        headers=auth_headers,
+    )
+
+    response = client.get("/issues/assigned-to-me", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert {issue["id"] for issue in response.json()} == {first["id"], second["id"]}
+
+
+def test_my_pending_issues_requires_authentication(client: TestClient) -> None:
+    assert client.get("/issues/assigned-to-me").status_code == 401
+
+
 def test_issue_history_404_for_unknown_issue(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:

@@ -18,7 +18,7 @@ export default function AppShell({
   const { projectId: activeProjectId } = useParams<{ projectId?: string }>();
 
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
-  const [isNavExpanded, setIsNavExpanded] = useState(false);
+  const [isNavExpanded, setIsNavExpanded] = useState(true);
 
   useEffect(() => {
     if (!token) return;

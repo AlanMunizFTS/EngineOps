@@ -132,6 +132,13 @@ class FakeIssueRepository(IssueRepository):
             ]
         return results
 
+    async def list_pending_for_assignee(self, assignee_id: UUID) -> list[Issue]:
+        return [
+            issue
+            for issue in self._issues.values()
+            if issue.assignee_id == assignee_id and issue.status != IssueStatus.DONE
+        ]
+
     async def update(
         self,
         issue_id: UUID,

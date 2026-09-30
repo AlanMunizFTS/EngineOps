@@ -18,7 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", to: "/projects", icon: HomeIcon },
   { label: "All issues", icon: IssueIcon, comingSoon: true },
   { label: "All projects", to: "/projects/all", icon: FolderIcon },
-  { label: "Kanban boards", icon: BoardIcon, comingSoon: true },
+  { label: "My Kanban", to: "/my-kanban", icon: BoardIcon },
   { label: "AI assistant", icon: SparkleIcon, comingSoon: true },
 ];
 

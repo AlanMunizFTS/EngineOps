@@ -10,6 +10,7 @@ import IssuesPage from "./pages/IssuesPage";
 import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
 import MaterialPage from "./pages/MaterialPage";
+import MyKanbanPage from "./pages/MyKanbanPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import SchedulePage from "./pages/SchedulePage";
 import SettingsPage from "./pages/SettingsPage";
@@ -42,6 +43,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AllProjectsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-kanban"
+        element={
+          <ProtectedRoute>
+            <MyKanbanPage />
           </ProtectedRoute>
         }
       />

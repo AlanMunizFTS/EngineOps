@@ -172,6 +172,10 @@ export function listProjectIssues(
   return authFetch(token, `/projects/${projectId}/issues${query ? `?${query}` : ""}`);
 }
 
+export function listMyPendingIssues(token: string): Promise<IssueResponse[]> {
+  return authFetch(token, "/issues/assigned-to-me");
+}
+
 export interface IssueCreateFields {
   title: string;
   description?: string | null;

@@ -41,6 +41,11 @@ class IssueRepository(ABC):
     ) -> list[Issue]: ...
 
     @abstractmethod
+    async def list_pending_for_assignee(self, assignee_id: UUID) -> list[Issue]:
+        """Return every non-completed issue assigned to a user, across projects."""
+        ...
+
+    @abstractmethod
     async def update(
         self,
         issue_id: UUID,

@@ -179,6 +179,27 @@ async def list_project_issues(
     return [_issue_response(issue) for issue in issues]
 
 
+@router.get("/issues/assigned-to-me", response_model=list[IssueResponse])
+async def list_my_pending_issues(
+    current_user: Annotated[User, Depends(get_current_user)],
+    issue_repo: Annotated[IssueRepository, Depends(get_issue_repository)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[IssueResponse]:
+    """List the current user's pending work across every project."""
+    issues = await issue_repo.list_pending_for_assignee(current_user.id)
+
+    today = today_in_business_timezone()
+    advanced = False
+    for index, issue in enumerate(issues):
+        if should_auto_advance_to_todo(today, issue.status, issue.start_date):
+            issues[index] = await issue_repo.set_status(issue.id, IssueStatus.TODO)
+            advanced = True
+    if advanced:
+        await session.commit()
+
+    return [_issue_response(issue) for issue in issues]
+
+
 @router.get("/issues/{issue_id}/history", response_model=list[AuditLogEntryResponse])
 async def get_issue_history(
     issue_id: UUID,
