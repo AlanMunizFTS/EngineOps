@@ -53,6 +53,10 @@ class SqlAlchemyProjectRepository(ProjectRepository):
         )
         return [_to_project(row) for row in result.scalars().all()]
 
+    async def delete(self, project_id: UUID) -> None:
+        await self._session.execute(delete(ProjectORM).where(ProjectORM.id == project_id))
+        await self._session.flush()
+
     async def add_member(
         self, project_id: UUID, user_id: UUID, project_role: ProjectRole
     ) -> ProjectMember:

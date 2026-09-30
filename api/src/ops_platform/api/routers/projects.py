@@ -148,6 +148,32 @@ async def get_project(
     return _project_response(project)
 
 
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    await _get_project_or_404(project_repo, project_id)
+    members = await project_repo.list_members(project_id)
+    is_owner = any(
+        member.user_id == current_user.id and member.project_role == ProjectRole.OWNER
+        for member in members
+    )
+    is_admin = any(role.name == "admin" for role in current_user.roles)
+    if not is_owner and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a project owner or administrator can delete this project",
+        )
+
+    # All project-scoped foreign keys use ON DELETE CASCADE, so this removes
+    # issues, boards, materials, files, memberships, and audit history atomically.
+    await project_repo.delete(project_id)
+    await session.commit()
+
+
 @router.post(
     "/{project_id}/members",
     response_model=ProjectMemberResponse,
@@ -195,7 +221,9 @@ async def list_member_candidates(
     (admins aren't assignable work - see the Schedule/Kanban assignee pickers,
     which draw from the same project_members list)."""
     await _get_project_or_404(project_repo, project_id)
-    existing_member_ids = {member.user_id for member in await project_repo.list_members(project_id)}
+    existing_member_ids = {
+        member.user_id for member in await project_repo.list_members(project_id)
+    }
     all_users = await user_repo.list_all()
     return [
         UserSummaryResponse(id=user.id, email=user.email, full_name=user.full_name)

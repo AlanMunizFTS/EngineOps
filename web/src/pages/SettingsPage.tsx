@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
   addProjectMember,
+  deleteProject,
   getProject,
   listMemberCandidates,
   listProjectMembers,
@@ -20,7 +21,8 @@ import { TrashIcon } from "../components/icons";
 
 export default function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { token } = useAuth();
+  const navigate = useNavigate();
+  const { token, user } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [issues, setIssues] = useState<IssueResponse[]>([]);
@@ -28,6 +30,7 @@ export default function SettingsPage() {
   const [candidates, setCandidates] = useState<UserSummaryResponse[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   useEffect(() => {
     if (token && projectId) void loadAll();
@@ -103,6 +106,24 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleDeleteProject() {
+    if (!token || !projectId || !project) return;
+    const confirmed = window.confirm(
+      `Delete project "${project.name}"? All of its issues, boards, materials, files, and history will be permanently deleted. This can't be undone.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeletingProject(true);
+    setError(null);
+    try {
+      await deleteProject(token, projectId);
+      navigate("/projects", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete project");
+      setIsDeletingProject(false);
+    }
+  }
+
   if (!project) {
     return (
       <AppShell>
@@ -110,6 +131,10 @@ export default function SettingsPage() {
       </AppShell>
     );
   }
+
+  const canDeleteProject =
+    user?.roles.includes("admin") ||
+    members.some((member) => member.user_id === user?.id && member.project_role === "owner");
 
   return (
     <AppShell breadcrumb={project.name}>
@@ -208,6 +233,24 @@ export default function SettingsPage() {
             )}
           </div>
         </section>
+
+        {canDeleteProject && (
+          <section className="rounded-md border border-red-900/70 bg-red-950/20 p-4">
+            <h2 className="mb-1 text-sm font-semibold text-red-300">Danger zone</h2>
+            <p className="mb-3 text-xs text-slate-400">
+              Permanently delete this project and all of its issues, boards, materials, files,
+              members, and history. This action cannot be undone.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleDeleteProject()}
+              disabled={isDeletingProject}
+              className="rounded-md border border-red-700 bg-red-950/60 px-3 py-1.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isDeletingProject ? "Deleting project..." : "Delete project"}
+            </button>
+          </section>
+        )}
       </div>
     </AppShell>
   );

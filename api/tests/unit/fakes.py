@@ -137,6 +137,10 @@ class FakeProjectRepository(ProjectRepository):
     async def list_all(self) -> list[Project]:
         return list(self._projects.values())
 
+    async def delete(self, project_id: UUID) -> None:
+        self._projects.pop(project_id, None)
+        self._members.pop(project_id, None)
+
     async def add_member(
         self, project_id: UUID, user_id: UUID, project_role: ProjectRole
     ) -> ProjectMember:

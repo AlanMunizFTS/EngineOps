@@ -141,6 +141,10 @@ export function createProject(
   });
 }
 
+export function deleteProject(token: string, projectId: string): Promise<void> {
+  return authFetch(token, `/projects/${projectId}`, { method: "DELETE" });
+}
+
 export function listProjectMembers(
   token: string,
   projectId: string,

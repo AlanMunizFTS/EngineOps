@@ -19,6 +19,9 @@ class ProjectRepository(ABC):
     async def list_all(self) -> list[Project]: ...
 
     @abstractmethod
+    async def delete(self, project_id: UUID) -> None: ...
+
+    @abstractmethod
     async def add_member(
         self, project_id: UUID, user_id: UUID, project_role: ProjectRole
     ) -> ProjectMember: ...
