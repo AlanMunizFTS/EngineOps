@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getProject, type ProjectResponse } from "../api/client";
+import {
+  getProject,
+  listProjectMembers,
+  type ProjectMemberDetailResponse,
+  type ProjectResponse,
+} from "../api/client";
 import {
   attachIssueLabel,
   createIssueComment,
@@ -46,10 +51,12 @@ export default function IssueDetailPage() {
   const [comments, setComments] = useState<IssueCommentResponse[]>([]);
   const [history, setHistory] = useState<AuditLogEntryResponse[]>([]);
   const [projectIssues, setProjectIssues] = useState<IssueResponse[]>([]);
+  const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<IssuePriority>("medium");
   const [issueType, setIssueType] = useState<IssueType>("task");
+  const [assigneeId, setAssigneeId] = useState("");
   const [parentIssueId, setParentIssueId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -67,7 +74,7 @@ export default function IssueDetailPage() {
   async function loadAll() {
     if (!token || !projectId || !issueId) return;
     try {
-      const [projectData, issueData, labelData, commentData, historyData, issuesData] =
+      const [projectData, issueData, labelData, commentData, historyData, issuesData, memberData] =
         await Promise.all([
           getProject(token, projectId),
           getIssue(token, issueId),
@@ -75,6 +82,7 @@ export default function IssueDetailPage() {
           listIssueComments(token, issueId),
           getIssueHistory(token, issueId),
           listProjectIssues(token, projectId),
+          listProjectMembers(token, projectId),
         ]);
       setProject(projectData);
       setIssue(issueData);
@@ -82,10 +90,12 @@ export default function IssueDetailPage() {
       setComments(commentData);
       setHistory(historyData);
       setProjectIssues(issuesData);
+      setMembers(memberData);
       setTitle(issueData.title);
       setDescription(issueData.description ?? "");
       setPriority(issueData.priority);
       setIssueType(issueData.issue_type);
+      setAssigneeId(issueData.assignee_id ?? "");
       setParentIssueId(issueData.parent_issue_id ?? "");
       setStartDate(issueData.start_date ?? "");
       setDueDate(issueData.due_date ?? "");
@@ -103,7 +113,7 @@ export default function IssueDetailPage() {
         description: description || null,
         priority,
         issue_type: issueType,
-        assignee_id: issue.assignee_id,
+        assignee_id: assigneeId || null,
         parent_issue_id: parentIssueId || null,
         start_date: startDate || null,
         due_date: dueDate || null,
@@ -249,6 +259,19 @@ export default function IssueDetailPage() {
               <option value="medium">medium</option>
               <option value="high">high</option>
               <option value="urgent">urgent</option>
+            </select>
+            <select
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
+              aria-label="Responsible person"
+              className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
+            >
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.full_name}
+                </option>
+              ))}
             </select>
             <button
               onClick={handleSave}

@@ -689,6 +689,7 @@ export default function SchedulePage() {
   const [showNewIssueForm, setShowNewIssueForm] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState("");
   const [newIssueParentId, setNewIssueParentId] = useState("");
+  const [newIssueAssigneeId, setNewIssueAssigneeId] = useState("");
   const [newIssueStart, setNewIssueStart] = useState("");
   const [newIssueDue, setNewIssueDue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -831,12 +832,14 @@ export default function SchedulePage() {
       const created = await createIssue(token, projectId, {
         title: newIssueTitle.trim(),
         parent_issue_id: newIssueParentId || null,
+        assignee_id: newIssueAssigneeId || null,
         start_date: newIssueStart || null,
         due_date: newIssueDue || null,
       });
       setIssues((current) => [...current, created]);
       setNewIssueTitle("");
       setNewIssueParentId("");
+      setNewIssueAssigneeId("");
       setNewIssueStart("");
       setNewIssueDue("");
       setShowNewIssueForm(false);
@@ -1066,6 +1069,19 @@ export default function SchedulePage() {
                 {issues.map((issue) => (
                   <option key={issue.id} value={issue.id}>
                     {issue.title}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newIssueAssigneeId}
+                onChange={(e) => setNewIssueAssigneeId(e.target.value)}
+                aria-label="Responsible person"
+                className="max-w-56 rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
+              >
+                <option value="">Unassigned</option>
+                {members.map((member) => (
+                  <option key={member.user_id} value={member.user_id}>
+                    {member.full_name}
                   </option>
                 ))}
               </select>

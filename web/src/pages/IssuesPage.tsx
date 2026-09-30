@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getProject, type ProjectResponse } from "../api/client";
+import {
+  getProject,
+  listProjectMembers,
+  type ProjectMemberDetailResponse,
+  type ProjectResponse,
+} from "../api/client";
 import {
   createIssue,
   listProjectIssues,
@@ -26,12 +31,14 @@ export default function IssuesPage() {
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [labels, setLabels] = useState<LabelResponse[]>([]);
+  const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<IssueStatus | "">("");
   const [labelFilter, setLabelFilter] = useState("");
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [title, setTitle] = useState("");
   const [issueType, setIssueType] = useState<IssueType>("task");
   const [priority, setPriority] = useState<IssuePriority>("medium");
+  const [assigneeId, setAssigneeId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,17 +49,19 @@ export default function IssuesPage() {
   async function loadAll() {
     if (!token || !projectId) return;
     try {
-      const [projectData, issueData, labelData] = await Promise.all([
+      const [projectData, issueData, labelData, memberData] = await Promise.all([
         getProject(token, projectId),
         listProjectIssues(token, projectId, {
           status: statusFilter || undefined,
           label_id: labelFilter || undefined,
         }),
         listProjectLabels(token, projectId),
+        listProjectMembers(token, projectId),
       ]);
       setProject(projectData);
       setIssues(issueData);
       setLabels(labelData);
+      setMembers(memberData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load issues");
     }
@@ -61,10 +70,16 @@ export default function IssuesPage() {
   async function handleCreateIssue() {
     if (!token || !projectId || !title.trim()) return;
     try {
-      await createIssue(token, projectId, { title, issue_type: issueType, priority });
+      await createIssue(token, projectId, {
+        title,
+        issue_type: issueType,
+        priority,
+        assignee_id: assigneeId || null,
+      });
       setTitle("");
       setIssueType("task");
       setPriority("medium");
+      setAssigneeId("");
       setShowNewIssue(false);
       await loadAll();
     } catch (err) {
@@ -151,6 +166,19 @@ export default function IssuesPage() {
                 <option value="medium">medium</option>
                 <option value="high">high</option>
                 <option value="urgent">urgent</option>
+              </select>
+              <select
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                aria-label="Responsible person"
+                className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
+              >
+                <option value="">Unassigned</option>
+                {members.map((member) => (
+                  <option key={member.user_id} value={member.user_id}>
+                    {member.full_name}
+                  </option>
+                ))}
               </select>
               <button
                 onClick={handleCreateIssue}
