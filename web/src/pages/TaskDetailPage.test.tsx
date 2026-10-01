@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   listProjects: vi.fn(),
   listSubtasks: vi.fn(),
   listTaskComments: vi.fn(),
+  updateTask: vi.fn(),
 }));
 
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
@@ -36,7 +37,7 @@ vi.mock("../api/client_tasks", () => ({
   listProjectLabels: api.listProjectLabels,
   listSubtasks: api.listSubtasks,
   listTaskComments: api.listTaskComments,
-  updateTask: vi.fn(),
+  updateTask: api.updateTask,
   updateTaskStatus: vi.fn(),
 }));
 
@@ -82,6 +83,7 @@ describe("TaskDetailPage", () => {
     api.listSubtasks.mockResolvedValue([]);
     api.listTaskComments.mockResolvedValue([]);
     api.deleteTask.mockResolvedValue(undefined);
+    api.updateTask.mockResolvedValue({ ...task, due_date: "2026-10-15" });
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -99,5 +101,28 @@ describe("TaskDetailPage", () => {
 
     await waitFor(() => expect(api.deleteTask).toHaveBeenCalledWith("token", "task-1"));
     expect(await screen.findByText("Task list")).toBeInTheDocument();
+  });
+
+  it("automatically saves field changes without a Save button", async () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/tasks/task-1"]}>
+        <Routes>
+          <Route path="/projects/:projectId/tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText("Due date"), {
+      target: { value: "2026-10-15" },
+    });
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(api.updateTask).toHaveBeenCalledWith(
+        "token",
+        "task-1",
+        expect.objectContaining({ due_date: "2026-10-15" }),
+      ),
+    );
   });
 });

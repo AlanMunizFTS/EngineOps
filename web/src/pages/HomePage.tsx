@@ -1,12 +1,30 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { createProject, getRecentActivity, type ActivityEntryResponse } from "../api/client";
+import {
+  createProject,
+  getRecentActivity,
+  listProjects,
+  type ActivityEntryResponse,
+  type ProjectResponse,
+} from "../api/client";
+import {
+  createTask,
+  listProjectTasks,
+  updateTask,
+  updateTaskStatus,
+  type TaskPriority,
+  type TaskResponse,
+  type TaskStatus,
+  type TaskType,
+} from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import AskBox from "../components/AskBox";
 import ChangelogCard from "../components/ChangelogCard";
+import Modal, { ModalActions } from "../components/Modal";
 import RoadmapCard from "../components/RoadmapCard";
+import WeeklyPlanBoard from "../components/WeeklyPlanBoard";
 
 const INITIAL_LIMIT = 10;
 const EXPANDED_LIMIT = 30;
@@ -36,12 +54,26 @@ export default function HomePage() {
   const [activityLimit, setActivityLimit] = useState(INITIAL_LIMIT);
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [weeklyTasks, setWeeklyTasks] = useState<TaskResponse[]>([]);
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   const [showCreateForm, setShowCreateForm] = useState(searchParams.get("create") === "1");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [taskDraft, setTaskDraft] = useState({
+    projectId: "",
+    title: "",
+    dueDate: "",
+    priority: "medium" as TaskPriority,
+    taskType: "task" as TaskType,
+  });
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -55,11 +87,33 @@ export default function HomePage() {
   }, [token, activityLimit]);
 
   useEffect(() => {
+    if (!token) return;
+    setIsLoadingPlan(true);
+    setPlanError(null);
+    listProjects(token)
+      .then(async (projectData) => {
+        const taskGroups = await Promise.all(
+          projectData.map((project) => listProjectTasks(token, project.id)),
+        );
+        setProjects(projectData);
+        setWeeklyTasks(
+          taskGroups.flat().filter((task) => task.parent_task_id === null),
+        );
+      })
+      .catch((err) =>
+        setPlanError(err instanceof Error ? err.message : "Failed to load the weekly plan"),
+      )
+      .finally(() => setIsLoadingPlan(false));
+  }, [token]);
+
+  useEffect(() => {
     setShowCreateForm(searchParams.get("create") === "1");
   }, [searchParams]);
 
   function closeCreateForm() {
+    if (isCreating) return;
     setShowCreateForm(false);
+    setFormError(null);
     setSearchParams({});
   }
 
@@ -77,56 +131,114 @@ export default function HomePage() {
     }
   }
 
+  async function handleMoveTask(taskId: string, dueDate: string) {
+    if (!token) return;
+    const previous = weeklyTasks.find((task) => task.id === taskId);
+    if (!previous || previous.due_date === dueDate) return;
+    setPlanError(null);
+    setWeeklyTasks((current) =>
+      current.map((task) => task.id === taskId ? { ...task, due_date: dueDate } : task),
+    );
+    try {
+      const updated = await updateTask(token, taskId, { due_date: dueDate });
+      setWeeklyTasks((current) =>
+        current.map((task) => task.id === taskId ? updated : task),
+      );
+    } catch (err) {
+      setWeeklyTasks((current) =>
+        current.map((task) => task.id === taskId ? previous : task),
+      );
+      setPlanError(err instanceof Error ? err.message : "Failed to reschedule the task");
+    }
+  }
+
+  async function handleChangeTaskStatus(taskId: string, status: TaskStatus) {
+    if (!token) return;
+    const previous = weeklyTasks.find((task) => task.id === taskId);
+    if (!previous || previous.status === status) return;
+    setPlanError(null);
+    setWeeklyTasks((current) =>
+      current.map((task) => task.id === taskId ? { ...task, status } : task),
+    );
+    try {
+      const updated = await updateTaskStatus(token, taskId, status);
+      setWeeklyTasks((current) =>
+        current.map((task) => task.id === taskId ? updated : task),
+      );
+    } catch (err) {
+      setWeeklyTasks((current) =>
+        current.map((task) => task.id === taskId ? previous : task),
+      );
+      setPlanError(err instanceof Error ? err.message : "Failed to change Task status");
+    }
+  }
+
+  function openTaskModal(dueDate: string) {
+    setTaskDraft({
+      projectId: projects[0]?.id ?? "",
+      title: "",
+      dueDate,
+      priority: "medium",
+      taskType: "task",
+    });
+    setTaskCreateError(null);
+    setShowTaskModal(true);
+  }
+
+  function closeTaskModal() {
+    if (isCreatingTask) return;
+    setShowTaskModal(false);
+    setTaskCreateError(null);
+  }
+
+  async function handleCreateTask(event: React.FormEvent) {
+    event.preventDefault();
+    if (!token || !taskDraft.projectId || !taskDraft.title.trim()) return;
+    setIsCreatingTask(true);
+    setTaskCreateError(null);
+    try {
+      const created = await createTask(token, taskDraft.projectId, {
+        title: taskDraft.title.trim(),
+        due_date: taskDraft.dueDate,
+        priority: taskDraft.priority,
+        task_type: taskDraft.taskType,
+      });
+      setWeeklyTasks((current) => [...current, created]);
+      setShowTaskModal(false);
+    } catch (err) {
+      setTaskCreateError(err instanceof Error ? err.message : "Failed to create Task");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  }
+
   return (
     <AppShell>
-      <div className="mx-auto flex max-w-6xl gap-6 p-6">
-        <div className="min-w-0 flex-1 space-y-4">
-          <h1 className="text-2xl font-semibold text-slate-100">Home</h1>
+      <div className="mx-auto max-w-[100rem] space-y-6 p-6">
+        <h1 className="text-2xl font-semibold text-slate-100">Home</h1>
 
-          <AskBox />
+        {planError && (
+          <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            {planError}
+          </p>
+        )}
+        {isLoadingPlan ? (
+          <div className="h-80 animate-pulse rounded-lg bg-ink-900" />
+        ) : (
+          <WeeklyPlanBoard
+            tasks={weeklyTasks}
+            projects={projects}
+            onMoveTask={handleMoveTask}
+            onCreateTask={openTaskModal}
+            onChangeStatus={handleChangeTaskStatus}
+          />
+        )}
 
-          {showCreateForm && (
-            <form
-              onSubmit={handleCreate}
-              className="relative space-y-3 rounded-md border border-ink-800 bg-ink-900 p-4"
-            >
-              <button
-                type="button"
-                onClick={closeCreateForm}
-                aria-label="Close"
-                className="absolute right-4 top-4 text-slate-500 transition-colors hover:text-slate-200"
-              >
-                ×
-              </button>
-              <h2 className="text-base font-semibold text-slate-100">New project</h2>
-              <input
-                type="text"
-                placeholder="Project name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoFocus
-                required
-                className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
-              />
-              <textarea
-                placeholder="Description (optional)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
-              />
-              {formError && <p className="text-sm text-red-400">{formError}</p>}
-              <button
-                type="submit"
-                disabled={isCreating}
-                className="rounded-lg bg-ember-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-ember-600 disabled:opacity-50"
-              >
-                {isCreating ? "Creating..." : "Create project"}
-              </button>
-            </form>
-          )}
+        <div className="flex gap-6">
+          <div className="min-w-0 flex-1 space-y-4">
+            <AskBox />
 
-          <section>
+            <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-100">Feed</h2>
               <button
@@ -179,14 +291,139 @@ export default function HomePage() {
                 ))}
               </ul>
             )}
-          </section>
-        </div>
+            </section>
+          </div>
 
-        <aside className="hidden w-80 flex-shrink-0 space-y-4 lg:block">
-          <RoadmapCard />
-          <ChangelogCard />
-        </aside>
+          <aside className="hidden w-80 flex-shrink-0 space-y-4 lg:block">
+            <RoadmapCard />
+            <ChangelogCard />
+          </aside>
+        </div>
       </div>
+
+      {showCreateForm && (
+        <Modal title="New project" onClose={closeCreateForm}>
+          <form onSubmit={handleCreate} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Project name</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                autoFocus
+                required
+                className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Description</span>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+              />
+            </label>
+            {formError && <p className="text-sm text-red-400">{formError}</p>}
+            <ModalActions>
+              <button
+                type="button"
+                onClick={closeCreateForm}
+                disabled={isCreating}
+                className="rounded-md border border-ink-700 px-3 py-1.5 text-sm text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isCreating || !name.trim()}
+                className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {isCreating ? "Creating..." : "Create project"}
+              </button>
+            </ModalActions>
+          </form>
+        </Modal>
+      )}
+
+      {showTaskModal && (
+        <Modal title="New Task" onClose={closeTaskModal}>
+          <form onSubmit={handleCreateTask} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Project</span>
+              <select
+                value={taskDraft.projectId}
+                onChange={(event) => setTaskDraft((current) => ({ ...current, projectId: event.target.value }))}
+                required
+                className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+              >
+                <option value="" disabled>Select a project</option>
+                {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Title</span>
+              <input
+                value={taskDraft.title}
+                onChange={(event) => setTaskDraft((current) => ({ ...current, title: event.target.value }))}
+                autoFocus
+                required
+                className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Due date</span>
+              <input
+                type="date"
+                value={taskDraft.dueDate}
+                onChange={(event) => setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                required
+                className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label>
+                <span className="mb-1 block text-xs font-medium text-slate-400">Priority</span>
+                <select
+                  value={taskDraft.priority}
+                  onChange={(event) => setTaskDraft((current) => ({ ...current, priority: event.target.value as TaskPriority }))}
+                  className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+                >
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option>
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-medium text-slate-400">Type</span>
+                <select
+                  value={taskDraft.taskType}
+                  onChange={(event) => setTaskDraft((current) => ({ ...current, taskType: event.target.value as TaskType }))}
+                  className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
+                >
+                  <option value="task">Task</option><option value="bug">Bug</option><option value="improvement">Improvement</option><option value="incident">Incident</option>
+                </select>
+              </label>
+            </div>
+            {taskCreateError && <p className="text-sm text-red-400">{taskCreateError}</p>}
+            <ModalActions>
+              <button
+                type="button"
+                onClick={closeTaskModal}
+                disabled={isCreatingTask}
+                className="rounded-md border border-ink-700 px-3 py-1.5 text-sm text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isCreatingTask || !taskDraft.projectId || !taskDraft.title.trim()}
+                className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {isCreatingTask ? "Creating..." : "Create Task"}
+              </button>
+            </ModalActions>
+          </form>
+        </Modal>
+      )}
     </AppShell>
   );
 }

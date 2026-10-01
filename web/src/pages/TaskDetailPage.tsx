@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { getProject, listProjectMembers, type AuditLogEntryResponse, type ProjectMemberDetailResponse, type ProjectResponse } from "../api/client";
@@ -37,6 +37,8 @@ export default function TaskDetailPage() {
   const [labelToAdd, setLabelToAdd] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const lastSavedForm = useRef("");
 
   async function loadAll() {
     if (!token || !projectId || !taskId) return;
@@ -48,7 +50,9 @@ export default function TaskDetailPage() {
       ]);
       setProject(projectData); setTask(taskData); setMembers(memberData); setMilestones(milestoneData);
       setLabels(labelData); setComments(commentData); setHistory(historyData);
-      setForm({ title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeId: taskData.assignee_id ?? "", startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "" });
+      const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeId: taskData.assignee_id ?? "", startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "" };
+      lastSavedForm.current = JSON.stringify(loadedForm);
+      setForm(loadedForm);
       const [children, parentData] = await Promise.all([
         taskData.parent_task_id ? Promise.resolve([]) : listSubtasks(token, taskData.id),
         taskData.parent_task_id ? getTask(token, taskData.parent_task_id) : Promise.resolve(null),
@@ -58,20 +62,36 @@ export default function TaskDetailPage() {
   }
 
   useEffect(() => { void loadAll(); }, [token, projectId, taskId]);
+  useEffect(() => {
+    if (!token || !task) return;
+    const serialized = JSON.stringify(form);
+    if (serialized === lastSavedForm.current) return;
+    const timeout = window.setTimeout(async () => {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const updated = await updateTask(token, task.id, {
+          title: form.title,
+          description: form.description || null,
+          priority: form.priority,
+          task_type: form.taskType,
+          milestone_id: task.parent_task_id ? undefined : form.milestoneId || null,
+          assignee_id: form.assigneeId || null,
+          start_date: form.startDate || null,
+          due_date: form.dueDate || null,
+        });
+        lastSavedForm.current = serialized;
+        setTask((current) => current ? { ...updated, status: current.status } : updated);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save Task");
+      } finally {
+        setIsSaving(false);
+      }
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [form, token, task?.id, task?.parent_task_id]);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m.full_name])), [members]);
   const availableLabels = labels.filter((label) => !task?.labels.some((attached) => attached.id === label.id));
-
-  async function saveTask() {
-    if (!token || !task) return;
-    try {
-      const updated = await updateTask(token, task.id, {
-        title: form.title, description: form.description || null, priority: form.priority, task_type: form.taskType,
-        milestone_id: task.parent_task_id ? undefined : form.milestoneId || null, assignee_id: form.assigneeId || null,
-        start_date: form.startDate || null, due_date: form.dueDate || null,
-      });
-      setTask(updated); setError(null);
-    } catch (err) { setError(err instanceof Error ? err.message : "Failed to save Task"); }
-  }
 
   async function setStatus(target: TaskResponse, status: TaskStatus) {
     if (!token) return;
@@ -142,7 +162,9 @@ export default function TaskDetailPage() {
         <select aria-label="Assignee" className={inputClass} value={form.assigneeId} onChange={(e) => field("assigneeId", e.target.value)}><option value="">Unassigned</option>{members.map((m) => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}</select>
         <input aria-label="Start date" type="date" className={inputClass} value={form.startDate} onChange={(e) => field("startDate", e.target.value)} />
         <input aria-label="Due date" type="date" className={inputClass} value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
-        <button className="rounded-md bg-ember-500 px-3 py-2 text-sm font-medium text-white" onClick={() => void saveTask()}>Save</button>
+        <p className="self-center text-right text-xs text-slate-500 md:col-span-4" aria-live="polite">
+          {isSaving ? "Saving changes..." : "Changes save automatically"}
+        </p>
       </section>
 
       <section className="rounded-md border border-ink-800 bg-ink-900 p-4"><h2 className="mb-3 text-sm font-semibold text-slate-100">Labels</h2><div className="flex flex-wrap gap-2">{task.labels.map((label) => <button key={label.id} title="Remove label" onClick={async () => { if (!token) return; setTask(await detachTaskLabel(token, task.id, label.id)); }}><LabelChip label={label} /></button>)}<select aria-label="Add label" className={inputClass} value={labelToAdd} onChange={async (e) => { const value = e.target.value; setLabelToAdd(value); if (token && value) { setTask(await attachTaskLabel(token, task.id, value)); setLabelToAdd(""); } }}><option value="">Add label…</option>{availableLabels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div></section>
