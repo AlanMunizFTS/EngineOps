@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ops_platform.adapters.db.orm_models import AuditLogORM
@@ -34,6 +35,8 @@ class SqlAlchemyAuditRecorder(AuditRecorder):
                 entity_type=entity_type,
                 entity_id=entity_id,
                 action=action,
-                diff_json=diff,
+                # Request models can contain dates, UUIDs, and enums, none of
+                # which PostgreSQL's JSON serializer accepts directly.
+                diff_json=jsonable_encoder(diff),
             )
         )

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { getProject, listProjectMembers, type AuditLogEntryResponse, type ProjectMemberDetailResponse, type ProjectResponse } from "../api/client";
 import {
@@ -20,6 +20,7 @@ const inputClass = "rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text
 
 export default function TaskDetailPage() {
   const { projectId, taskId } = useParams<{ projectId: string; taskId: string }>();
+  const navigate = useNavigate();
   const { token } = useAuth();
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [task, setTask] = useState<TaskResponse | null>(null);
@@ -35,6 +36,7 @@ export default function TaskDetailPage() {
   const [commentBody, setCommentBody] = useState("");
   const [labelToAdd, setLabelToAdd] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function loadAll() {
     if (!token || !projectId || !taskId) return;
@@ -96,6 +98,23 @@ export default function TaskDetailPage() {
     try { await deleteTask(token, subtask.id); await loadAll(); } catch (err) { setError(err instanceof Error ? err.message : "Failed to delete Subtask"); }
   }
 
+  async function removeTask() {
+    if (!token || !task) return;
+    const role = task.parent_task_id ? "Subtask" : "Task";
+    if (!window.confirm(`Delete ${role} "${task.title}"? This can't be undone.`)) return;
+    try {
+      setIsDeleting(true);
+      setError(null);
+      await deleteTask(token, task.id);
+      navigate(parent
+        ? `/projects/${projectId}/tasks/${parent.id}`
+        : `/projects/${projectId}/tasks`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to delete ${role}`);
+      setIsDeleting(false);
+    }
+  }
+
   async function addComment() {
     if (!token || !task || !commentBody.trim()) return;
     try { const created = await createTaskComment(token, task.id, commentBody.trim()); setComments((items) => [...items, created]); setCommentBody(""); } catch (err) { setError(err instanceof Error ? err.message : "Failed to add comment"); }
@@ -109,7 +128,8 @@ export default function TaskDetailPage() {
     <ProjectTabs projectId={project.id} />
     <main className="mx-auto max-w-6xl space-y-5 p-6">
       {parent && <p className="text-sm text-slate-400">Subtask of <Link className="text-ember-400 hover:underline" to={`/projects/${projectId}/tasks/${parent.id}`}>{parent.title}</Link></p>}
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-medium uppercase tracking-wide text-slate-500">{task.parent_task_id ? "Subtask" : "Task"}</p><h1 className="text-2xl font-semibold text-slate-100">{task.title}</h1></div><div className="flex gap-2"><StatusBadge status={task.status} /><PriorityBadge priority={task.priority} /></div></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-medium uppercase tracking-wide text-slate-500">{task.parent_task_id ? "Subtask" : "Task"}</p><h1 className="text-2xl font-semibold text-slate-100">{task.title}</h1></div><div className="flex items-center gap-2"><StatusBadge status={task.status} /><PriorityBadge priority={task.priority} /><button className="rounded-md border border-red-900 px-3 py-1.5 text-sm text-red-400 hover:border-red-700 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50" disabled={isDeleting || task.subtasks_total > 0} title={task.subtasks_total > 0 ? "Delete its Subtasks before deleting this Task" : `Delete ${task.parent_task_id ? "Subtask" : "Task"}`} onClick={() => void removeTask()}>{isDeleting ? "Deleting..." : "Delete"}</button></div></div>
+      {task.subtasks_total > 0 && <p className="text-xs text-slate-500">Delete all Subtasks before deleting this Task.</p>}
       {error && <p role="alert" className="rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
 
       <section className="grid gap-3 rounded-md border border-ink-800 bg-ink-900 p-4 md:grid-cols-4">
