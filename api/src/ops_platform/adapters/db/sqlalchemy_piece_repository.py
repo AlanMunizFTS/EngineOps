@@ -293,9 +293,7 @@ class SqlAlchemyPieceRepository(PieceRepository):
             delete(PieceConditionLinkORM).where(PieceConditionLinkORM.piece_id == piece_id)
         )
         for condition_id in condition_ids:
-            self._session.add(
-                PieceConditionLinkORM(piece_id=piece_id, condition_id=condition_id)
-            )
+            self._session.add(PieceConditionLinkORM(piece_id=piece_id, condition_id=condition_id))
         await self._session.flush()
         await self._session.refresh(orm_piece, attribute_names=["conditions", "measurements"])
         return _to_piece(orm_piece)

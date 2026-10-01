@@ -22,7 +22,7 @@ from ops_platform.adapters.xlsx.styles import (
     style_header_row,
 )
 from ops_platform.adapters.xlsx.timeline_rows import TimelineRow, order_timeline_rows
-from ops_platform.domain.entities import Issue
+from ops_platform.domain.entities import Task
 from ops_platform.domain.scheduling import (
     calculate_days_planned,
     calculate_schedule_status,
@@ -52,33 +52,33 @@ _DAY_COLUMN_WIDTH = 3.0
 
 
 def write_timeline_sheet(
-    ws: Worksheet, project_name: str, issues: list[Issue], member_names: dict[UUID, str]
+    ws: Worksheet, project_name: str, tasks: list[Task], member_names: dict[UUID, str]
 ) -> None:
     today = today_in_business_timezone()
-    day_range = _build_day_range(issues, today)
+    day_range = _build_day_range(tasks, today)
     day_start_col = len(_INFO_COLUMNS) + 1
 
     _write_info_header(ws, project_name)
     _write_day_headers(ws, day_range, today, day_start_col)
 
-    rows = order_timeline_rows(issues)
+    rows = order_timeline_rows(tasks)
     for offset, row in enumerate(rows):
         row_index = _DATA_START_ROW + offset
         _write_info_cells(ws, row_index, offset + 1, row, member_names, today)
-        _write_gantt_bar(ws, row_index, day_range, row.issue, today, day_start_col)
+        _write_gantt_bar(ws, row_index, day_range, row.task, today, day_start_col)
 
     _apply_layout(ws, day_range, day_start_col)
 
 
-def _build_day_range(issues: list[Issue], today: date) -> list[date]:
+def _build_day_range(tasks: list[Task], today: date) -> list[date]:
     candidates = [today]
-    for issue in issues:
-        if issue.start_date:
-            candidates.append(issue.start_date)
-        if issue.due_date:
-            candidates.append(issue.due_date)
-        if issue.closed_at is not None:
-            candidates.append(to_business_date(issue.closed_at))
+    for task in tasks:
+        if task.start_date:
+            candidates.append(task.start_date)
+        if task.due_date:
+            candidates.append(task.due_date)
+        if task.closed_at is not None:
+            candidates.append(to_business_date(task.closed_at))
 
     start = min(candidates)
     start -= timedelta(days=start.weekday())
@@ -128,7 +128,9 @@ def _write_day_headers(
 def _write_week_band(ws: Worksheet, start_col: int, end_col: int, week_num: int) -> None:
     if end_col < start_col:
         return
-    ws.merge_cells(start_row=_WEEK_ROW, start_column=start_col, end_row=_WEEK_ROW, end_column=end_col)
+    ws.merge_cells(
+        start_row=_WEEK_ROW, start_column=start_col, end_row=_WEEK_ROW, end_column=end_col
+    )
     cell = ws.cell(row=_WEEK_ROW, column=start_col, value=f"W{week_num}")
     cell.font = HEADER_FONT
     cell.alignment = Alignment(horizontal="center")
@@ -159,24 +161,24 @@ def _write_info_cells(
     member_names: dict[UUID, str],
     today: date,
 ) -> None:
-    issue = row.issue
-    closed_at_date = to_business_date(issue.closed_at) if issue.closed_at else None
-    schedule_status = calculate_schedule_status(today, issue.due_date, closed_at_date)
-    days_planned = calculate_days_planned(issue.start_date, issue.due_date)
+    task = row.task
+    closed_at_date = to_business_date(task.closed_at) if task.closed_at else None
+    schedule_status = calculate_schedule_status(today, task.due_date, closed_at_date)
+    days_planned = calculate_days_planned(task.start_date, task.due_date)
     days_taken = (
-        working_days_taken(issue.start_date, closed_at_date or today)
-        if issue.start_date is not None
+        working_days_taken(task.start_date, closed_at_date or today)
+        if task.start_date is not None
         else None
     )
-    assignee = member_names.get(issue.assignee_id, "") if issue.assignee_id else ""
+    assignee = member_names.get(task.assignee_id, "") if task.assignee_id else ""
     indent = "    " * row.depth
     values = [
         number,
-        f"{indent}{issue.title}",
+        f"{indent}{task.title}",
         assignee,
-        issue.start_date.isoformat() if issue.start_date else "",
+        task.start_date.isoformat() if task.start_date else "",
         days_planned if days_planned is not None else "",
-        issue.due_date.isoformat() if issue.due_date else "",
+        task.due_date.isoformat() if task.due_date else "",
         days_taken if days_taken is not None else "",
         schedule_status.value.replace("_", " ").upper() if schedule_status else "",
         closed_at_date.isoformat() if closed_at_date else "",
@@ -189,14 +191,14 @@ def _write_gantt_bar(
     ws: Worksheet,
     row_index: int,
     day_range: list[date],
-    issue: Issue,
+    task: Task,
     today: date,
     day_start_col: int,
 ) -> None:
-    closed_at_date = to_business_date(issue.closed_at) if issue.closed_at else None
-    schedule_status = calculate_schedule_status(today, issue.due_date, closed_at_date)
+    closed_at_date = to_business_date(task.closed_at) if task.closed_at else None
+    schedule_status = calculate_schedule_status(today, task.due_date, closed_at_date)
     segments = compute_bar_segments(
-        today, issue.start_date, issue.due_date, closed_at_date, schedule_status
+        today, task.start_date, task.due_date, closed_at_date, schedule_status
     )
     day_index = {d: i for i, d in enumerate(day_range)}
     for segment in segments:

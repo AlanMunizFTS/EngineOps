@@ -13,16 +13,18 @@ import {
   deleteKanbanBoard,
   deleteKanbanColumn,
   listKanbanBoards,
-  listProjectIssues,
+  listMilestones,
+  listProjectTasks,
   renameKanbanBoard,
-  updateIssue,
-  updateIssueStatus,
-  type IssuePriority,
+  updateTask,
+  updateTaskStatus,
+  type TaskPriority,
   updateKanbanColumn,
-  type IssueResponse,
-  type IssueStatus,
+  type TaskResponse,
+  type TaskStatus,
   type KanbanBoardResponse,
-} from "../api/client_issues";
+  type MilestoneResponse,
+} from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import KanbanBoard from "../components/KanbanBoard";
@@ -38,7 +40,8 @@ export default function KanbanPage() {
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [boards, setBoards] = useState<KanbanBoardResponse[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
-  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
+  const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [showNewBoard, setShowNewBoard] = useState(false);
@@ -53,16 +56,18 @@ export default function KanbanPage() {
   async function loadAll() {
     if (!token || !projectId) return;
     try {
-      const [projectData, boardData, issueData, memberData] = await Promise.all([
+      const [projectData, boardData, taskData, memberData, milestoneData] = await Promise.all([
         getProject(token, projectId),
         listKanbanBoards(token, projectId),
-        listProjectIssues(token, projectId),
+        listProjectTasks(token, projectId),
         listProjectMembers(token, projectId),
+        listMilestones(token, projectId),
       ]);
       setProject(projectData);
       setBoards(boardData);
-      setIssues(issueData);
+      setTasks(taskData.filter((task) => task.parent_task_id === null));
       setMembers(memberData);
+      setMilestones(milestoneData);
       setActiveBoardId((current) =>
         current && boardData.some((b) => b.id === current) ? current : (boardData[0]?.id ?? null),
       );
@@ -71,68 +76,49 @@ export default function KanbanPage() {
     }
   }
 
-  const filteredIssues = useMemo(() => {
-    if (!assigneeFilter) return issues;
-    const matches = issues.filter((issue) =>
+  const filteredTasks = useMemo(() => {
+    if (!assigneeFilter) return tasks;
+    return tasks.filter((task) =>
       assigneeFilter === UNASSIGNED_FILTER_VALUE
-        ? issue.assignee_id === null
-        : issue.assignee_id === assigneeFilter,
+        ? task.assignee_id === null
+        : task.assignee_id === assigneeFilter,
     );
-    // Preserve the parent titles of matching subtasks so the hierarchy is
-    // still understandable while filtering by responsible person.
-    const issueById = new Map(issues.map((issue) => [issue.id, issue]));
-    const includedIds = new Set(matches.map((issue) => issue.id));
-    for (const issue of matches) {
-      let parentId = issue.parent_issue_id;
-      while (parentId && !includedIds.has(parentId)) {
-        includedIds.add(parentId);
-        parentId = issueById.get(parentId)?.parent_issue_id ?? null;
-      }
-    }
-    return issues.filter((issue) => includedIds.has(issue.id));
-  }, [issues, assigneeFilter]);
+  }, [tasks, assigneeFilter]);
 
-  async function handleMoveIssue(issueId: string, status: IssueStatus) {
+  async function handleMoveTask(taskId: string, status: TaskStatus) {
     if (!token) return;
-    const previous = issues;
-    setIssues((current) =>
-      current.map((issue) => (issue.id === issueId ? { ...issue, status } : issue)),
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((task) => (task.id === taskId ? { ...task, status } : task)),
     );
     try {
-      await updateIssueStatus(token, issueId, status);
+      await updateTaskStatus(token, taskId, status);
     } catch (err) {
-      setIssues(previous);
-      setError(err instanceof Error ? err.message : "Failed to move issue");
+      setTasks(previous);
+      setError(err instanceof Error ? err.message : "Failed to move task");
     }
   }
 
-  async function handleUpdateIssue(
-    issueId: string,
-    fields: { assignee_id?: string | null; priority?: IssuePriority },
+  async function handleUpdateTask(
+    taskId: string,
+    fields: { assignee_id?: string | null; priority?: TaskPriority },
   ) {
     if (!token) return;
-    const issue = issues.find((candidate) => candidate.id === issueId);
-    if (!issue) return;
-    const previous = issues;
-    setIssues((current) =>
-      current.map((candidate) => (candidate.id === issueId ? { ...candidate, ...fields } : candidate)),
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) return;
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((candidate) => (candidate.id === taskId ? { ...candidate, ...fields } : candidate)),
     );
     try {
-      const updated = await updateIssue(token, issueId, {
-        title: issue.title,
-        description: issue.description,
-        issue_type: issue.issue_type,
-        priority: fields.priority ?? issue.priority,
-        assignee_id: "assignee_id" in fields ? (fields.assignee_id ?? null) : issue.assignee_id,
-        parent_issue_id: issue.parent_issue_id,
-        start_date: issue.start_date,
-        due_date: issue.due_date,
-        closed_at: issue.closed_at_date,
+      const updated = await updateTask(token, taskId, {
+        priority: fields.priority ?? task.priority,
+        assignee_id: "assignee_id" in fields ? (fields.assignee_id ?? null) : task.assignee_id,
       });
-      setIssues((current) => current.map((candidate) => (candidate.id === issueId ? updated : candidate)));
+      setTasks((current) => current.map((candidate) => (candidate.id === taskId ? updated : candidate)));
     } catch (err) {
-      setIssues(previous);
-      setError(err instanceof Error ? err.message : "Failed to update issue");
+      setTasks(previous);
+      setError(err instanceof Error ? err.message : "Failed to update task");
     }
   }
 
@@ -174,7 +160,7 @@ export default function KanbanPage() {
     }
   }
 
-  async function handleCreateColumn(name: string, mapsToStatuses: IssueStatus[]) {
+  async function handleCreateColumn(name: string, mapsToStatuses: TaskStatus[]) {
     if (!token || !activeBoardId) return;
     try {
       const column = await createKanbanColumn(token, activeBoardId, name, mapsToStatuses);
@@ -188,7 +174,7 @@ export default function KanbanPage() {
     }
   }
 
-  async function handleRenameColumn(columnId: string, name: string, mapsToStatuses: IssueStatus[]) {
+  async function handleRenameColumn(columnId: string, name: string, mapsToStatuses: TaskStatus[]) {
     if (!token || !activeBoardId) return;
     try {
       const updated = await updateKanbanColumn(token, columnId, name, mapsToStatuses);
@@ -320,14 +306,15 @@ export default function KanbanPage() {
         {activeBoard ? (
           <KanbanBoard
             columns={activeBoard.columns}
-            issues={filteredIssues}
+            tasks={filteredTasks}
             members={members}
             projectId={project.id}
-            onMoveIssue={handleMoveIssue}
-            onUpdateIssue={handleUpdateIssue}
+            onMoveTask={handleMoveTask}
+            onUpdateTask={handleUpdateTask}
             onCreateColumn={handleCreateColumn}
             onRenameColumn={handleRenameColumn}
             onDeleteColumn={handleDeleteColumn}
+            milestoneNameById={new Map(milestones.map((milestone) => [milestone.id, milestone.title]))}
           />
         ) : (
           <p className="text-sm text-slate-500">No boards yet.</p>

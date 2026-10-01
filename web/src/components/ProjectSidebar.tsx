@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { ProjectResponse } from "../api/client";
-import { BoardIcon, FolderIcon, HomeIcon, IssueIcon, SparkleIcon } from "./icons";
+import { BoardIcon, FolderIcon, HomeIcon, TaskIcon, SparkleIcon } from "./icons";
 import ProjectTree from "./ProjectTree";
 
 const COLLAPSED_LIMIT = 6;
@@ -16,7 +16,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", to: "/projects", icon: HomeIcon },
-  { label: "All issues", icon: IssueIcon, comingSoon: true },
+  { label: "All tasks", icon: TaskIcon, comingSoon: true },
   { label: "All projects", to: "/projects/all", icon: FolderIcon },
   { label: "My Kanban", to: "/my-kanban", icon: BoardIcon },
   { label: "AI assistant", icon: SparkleIcon, comingSoon: true },

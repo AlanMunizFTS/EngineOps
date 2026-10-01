@@ -7,7 +7,8 @@ interface StaticTab {
 
 const TABS: StaticTab[] = [
   { label: "Dashboard" },
-  { label: "Issues", suffix: "issues" },
+  { label: "Milestones", suffix: "milestones" },
+  { label: "Tasks", suffix: "tasks" },
   { label: "Kanban", suffix: "kanban" },
   { label: "Schedule", suffix: "schedule" },
   { label: "Material", suffix: "material" },

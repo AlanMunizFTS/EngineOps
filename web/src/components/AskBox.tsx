@@ -1,6 +1,6 @@
 import { ChevronDownIcon, SendIcon } from "./icons";
 
-const QUICK_ACTIONS = ["Agent", "Create issue", "Write code", "Git", "Pull requests"];
+const QUICK_ACTIONS = ["Agent", "Create task", "Write code", "Git", "Pull requests"];
 
 function DropdownButton({ label }: { label: string }) {
   return (

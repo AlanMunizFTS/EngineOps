@@ -3,11 +3,11 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { ProjectResponse } from "../api/client";
-import type { IssueResponse, IssueStatus } from "../api/client_issues";
-import { PriorityBadge, PriorityScoreChip, STATUS_LABELS } from "./IssueBadges";
+import type { TaskResponse, TaskStatus } from "../api/client_tasks";
+import { PriorityBadge, PriorityScoreChip, STATUS_LABELS } from "./TaskBadges";
 import Modal, { ModalActions } from "./Modal";
 
-const COLUMNS: Array<{ status: IssueStatus; accent: string }> = [
+const COLUMNS: Array<{ status: TaskStatus; accent: string }> = [
   { status: "backlog", accent: "bg-slate-400" },
   { status: "todo", accent: "bg-sky-400" },
   { status: "in_progress", accent: "bg-amber-400" },
@@ -15,7 +15,7 @@ const COLUMNS: Array<{ status: IssueStatus; accent: string }> = [
   { status: "done", accent: "bg-emerald-400" },
 ];
 
-function compareCards(a: IssueResponse, b: IssueResponse): number {
+function compareCards(a: TaskResponse, b: TaskResponse): number {
   if (a.priority_score === null && b.priority_score === null) return 0;
   if (a.priority_score === null) return 1;
   if (b.priority_score === null) return -1;
@@ -33,14 +33,14 @@ function formatDueDate(value: string): string {
 }
 
 function PersonalKanbanCard({
-  issue,
+  task,
   project,
 }: {
-  issue: IssueResponse;
+  task: TaskResponse;
   project: ProjectResponse | undefined;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: issue.id,
+    id: task.id,
   });
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -57,15 +57,15 @@ function PersonalKanbanCard({
       }`}
     >
       <Link
-        to={`/projects/${issue.project_id}/issues/${issue.id}`}
+        to={`/projects/${task.project_id}/tasks/${task.id}`}
         onClick={(event) => isDragging && event.preventDefault()}
         className="block text-sm font-medium leading-5 text-slate-100 transition-colors hover:text-ember-400"
       >
-        {issue.title}
+        {task.title}
       </Link>
 
       <Link
-        to={`/projects/${issue.project_id}`}
+        to={`/projects/${task.project_id}`}
         onPointerDown={(event) => event.stopPropagation()}
         className="mt-1.5 block truncate text-xs text-slate-500 transition-colors hover:text-slate-300"
         title={project?.name ?? "Unknown project"}
@@ -74,23 +74,26 @@ function PersonalKanbanCard({
       </Link>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <PriorityBadge priority={issue.priority} />
+        <PriorityBadge priority={task.priority} />
         <span className="rounded-full bg-ink-700 px-2 py-0.5 text-xs text-slate-400">
-          {issue.issue_type}
+          {task.task_type}
         </span>
-        {issue.priority_score !== null && <PriorityScoreChip score={issue.priority_score} />}
+        {task.priority_score !== null && <PriorityScoreChip score={task.priority_score} />}
       </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Subtasks: {task.subtasks_completed} / {task.subtasks_total}
+      </p>
 
-      {(issue.due_date || issue.labels.length > 0) && (
+      {(task.due_date || task.labels.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink-700 pt-2">
-          {issue.due_date && (
+          {task.due_date && (
             <span
-              className={`text-xs ${issue.schedule_status === "late" ? "text-red-400" : "text-slate-500"}`}
+              className={`text-xs ${task.schedule_status === "late" ? "text-red-400" : "text-slate-500"}`}
             >
-              Due {formatDueDate(issue.due_date)}
+              Due {formatDueDate(task.due_date)}
             </span>
           )}
-          {issue.labels.slice(0, 2).map((label) => (
+          {task.labels.slice(0, 2).map((label) => (
             <span
               key={label.id}
               className="max-w-24 truncate rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
@@ -109,12 +112,12 @@ function PersonalKanbanCard({
 function PersonalKanbanColumn({
   status,
   accent,
-  issues,
+  tasks,
   projectsById,
 }: {
-  status: IssueStatus;
+  status: TaskStatus;
   accent: string;
-  issues: IssueResponse[];
+  tasks: TaskResponse[];
   projectsById: Map<string, ProjectResponse>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
@@ -132,19 +135,19 @@ function PersonalKanbanColumn({
           {STATUS_LABELS[status]}
         </h2>
         <span className="ml-auto rounded-full bg-ink-800 px-2 py-0.5 text-xs text-slate-500">
-          {issues.length}
+          {tasks.length}
         </span>
       </header>
 
       <div className="flex-1 space-y-2.5">
-        {issues.map((issue) => (
+        {tasks.map((task) => (
           <PersonalKanbanCard
-            key={issue.id}
-            issue={issue}
-            project={projectsById.get(issue.project_id)}
+            key={task.id}
+            task={task}
+            project={projectsById.get(task.project_id)}
           />
         ))}
-        {issues.length === 0 && (
+        {tasks.length === 0 && (
           <div className="flex min-h-20 items-center justify-center rounded-md border border-dashed border-ink-800 px-3 text-center text-xs text-slate-600">
             {status === "done" ? "Drop here to complete" : "No assigned tasks"}
           </div>
@@ -155,15 +158,15 @@ function PersonalKanbanColumn({
 }
 
 export default function PersonalKanbanBoard({
-  issues,
+  tasks,
   projects,
-  onMoveIssue,
+  onMoveTask,
 }: {
-  issues: IssueResponse[];
+  tasks: TaskResponse[];
   projects: ProjectResponse[];
-  onMoveIssue: (issueId: string, status: IssueStatus) => void;
+  onMoveTask: (taskId: string, status: TaskStatus) => void;
 }) {
-  const [pendingCompletion, setPendingCompletion] = useState<IssueResponse | null>(null);
+  const [pendingCompletion, setPendingCompletion] = useState<TaskResponse | null>(null);
   const projectsById = useMemo(
     () => new Map(projects.map((project) => [project.id, project])),
     [projects],
@@ -171,16 +174,16 @@ export default function PersonalKanbanBoard({
 
   function handleDragEnd(event: DragEndEvent) {
     if (!event.over) return;
-    const issue = issues.find((candidate) => candidate.id === String(event.active.id));
-    const status = String(event.over.id) as IssueStatus;
-    if (!issue || issue.status === status || !COLUMNS.some((column) => column.status === status)) {
+    const task = tasks.find((candidate) => candidate.id === String(event.active.id));
+    const status = String(event.over.id) as TaskStatus;
+    if (!task || task.status === status || !COLUMNS.some((column) => column.status === status)) {
       return;
     }
     if (status === "done") {
-      setPendingCompletion(issue);
+      setPendingCompletion(task);
       return;
     }
-    onMoveIssue(issue.id, status);
+    onMoveTask(task.id, status);
   }
 
   return (
@@ -191,7 +194,7 @@ export default function PersonalKanbanBoard({
             key={column.status}
             status={column.status}
             accent={column.accent}
-            issues={issues.filter((issue) => issue.status === column.status).sort(compareCards)}
+            tasks={tasks.filter((task) => task.status === column.status).sort(compareCards)}
             projectsById={projectsById}
           />
         ))}
@@ -212,7 +215,7 @@ export default function PersonalKanbanBoard({
             </button>
             <button
               onClick={() => {
-                onMoveIssue(pendingCompletion.id, "done");
+                onMoveTask(pendingCompletion.id, "done");
                 setPendingCompletion(null);
               }}
               className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ember-600"

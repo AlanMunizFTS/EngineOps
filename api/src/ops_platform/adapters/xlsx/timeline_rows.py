@@ -9,30 +9,32 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from ops_platform.domain.entities import Issue
+from ops_platform.domain.entities import Task
 
 
 @dataclass(frozen=True, slots=True)
 class TimelineRow:
-    issue: Issue
+    task: Task
     depth: int
 
 
-def order_timeline_rows(issues: list[Issue]) -> list[TimelineRow]:
-    by_id = {issue.id: issue for issue in issues}
-    children_by_parent: dict[UUID | None, list[Issue]] = {}
-    for issue in issues:
-        parent_id = issue.parent_issue_id if issue.parent_issue_id in by_id else None
-        children_by_parent.setdefault(parent_id, []).append(issue)
+def order_timeline_rows(tasks: list[Task]) -> list[TimelineRow]:
+    by_id = {task.id: task for task in tasks}
+    children_by_parent: dict[UUID | None, list[Task]] = {}
+    for task in tasks:
+        parent_id = task.parent_task_id if task.parent_task_id in by_id else None
+        children_by_parent.setdefault(parent_id, []).append(task)
     for siblings in children_by_parent.values():
         siblings.sort(key=lambda i: (i.start_date or date.max, i.title.lower()))
 
     rows: list[TimelineRow] = []
 
     def visit(parent_id: UUID | None, depth: int) -> None:
-        for issue in children_by_parent.get(parent_id, []):
-            rows.append(TimelineRow(issue, depth))
-            visit(issue.id, depth + 1)
+        for task in children_by_parent.get(parent_id, []):
+            rows.append(TimelineRow(task, depth))
+            # The domain permits exactly one child level.
+            if depth == 0:
+                visit(task.id, 1)
 
     visit(None, 0)
     return rows

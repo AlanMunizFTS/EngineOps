@@ -277,7 +277,7 @@ export function deleteFileTreeNode(
   return authFetch(token, `/projects/${projectId}/tree/${nodeId}`, { method: "DELETE" });
 }
 
-// Phase 2 (labels, issues, kanban) lives in ./client_issues.ts to keep this
+// Phase 2 (labels, tasks, kanban) lives in ./client_tasks.ts to keep this
 // module under the ~400-line limit.
 
 export interface AdminCreateUserFields {

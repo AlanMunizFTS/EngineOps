@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 
-from ops_platform.domain.entities import IssuePriority, IssueStatus
+from ops_platform.domain.entities import TaskPriority, TaskStatus
 
 _WEEKEND = (5, 6)  # date.weekday(): Saturday=5, Sunday=6
 
@@ -25,7 +25,7 @@ _BUSINESS_UTC_OFFSET = timedelta(hours=-6)
 
 
 def today_in_business_timezone() -> date:
-    """"Today" for schedule/urgency purposes, always UTC-6 regardless of
+    """ "Today" for schedule/urgency purposes, always UTC-6 regardless of
     where the server process happens to be running or what its system
     clock's local timezone is set to."""
     return (datetime.now(UTC) + _BUSINESS_UTC_OFFSET).date()
@@ -55,7 +55,7 @@ def _working_days_after(start: date, end: date) -> int:
 
 class Urgency(StrEnum):
     """Time-pressure signal derived from working days left until `due_date` -
-    recomputed daily, unlike `IssuePriority` (called "Importance" in this
+    recomputed daily, unlike `TaskPriority` (called "Importance" in this
     context), which a person assigns and which doesn't drift with the
     calendar. 0 working days left (due today or overdue) -> HIGH; 1 -> MEDIUM;
     2+ -> LOW."""
@@ -106,16 +106,16 @@ def calculate_days_planned(start_date: date | None, due_date: date | None) -> in
 
 
 _URGENCY_RANK: dict[Urgency, int] = {Urgency.LOW: 0, Urgency.MEDIUM: 1, Urgency.HIGH: 2}
-_IMPORTANCE_RANK: dict[IssuePriority, int] = {
-    IssuePriority.LOW: 1,
-    IssuePriority.MEDIUM: 2,
-    IssuePriority.HIGH: 3,
+_IMPORTANCE_RANK: dict[TaskPriority, int] = {
+    TaskPriority.LOW: 1,
+    TaskPriority.MEDIUM: 2,
+    TaskPriority.HIGH: 3,
 }
 
 
 def calculate_priority_score(
     urgency: Urgency | None,
-    importance: IssuePriority,
+    importance: TaskPriority,
     *,
     is_overdue: bool = False,
     has_started: bool = True,
@@ -134,27 +134,25 @@ def calculate_priority_score(
     importance isn't URGENT - there's nothing to score against."""
     if not has_started:
         return 0
-    if importance == IssuePriority.URGENT or is_overdue:
+    if importance == TaskPriority.URGENT or is_overdue:
         return 10
     if urgency is None:
         return None
     return _URGENCY_RANK[urgency] * 3 + _IMPORTANCE_RANK[importance]
 
 
-def should_auto_advance_to_todo(
-    today: date, status: IssueStatus, start_date: date | None
-) -> bool:
-    """An issue an operator parked in Backlog because it wasn't time to start
+def should_auto_advance_to_todo(today: date, status: TaskStatus, start_date: date | None) -> bool:
+    """A task an operator parked in Backlog because it wasn't time to start
     it yet should surface in ToDo the day its `start_date` arrives, with no
     one needing to remember to drag it over manually. Only ever moves
-    Backlog -> ToDo: an issue a person has already moved anywhere else
+    Backlog -> ToDo: a task a person has already moved anywhere else
     (ToDo, In Progress, ...) is left alone, and one with no `start_date` has
     no signal to advance on, so it stays in Backlog until manually moved."""
-    return status == IssueStatus.BACKLOG and start_date is not None and start_date <= today
+    return status == TaskStatus.BACKLOG and start_date is not None and start_date <= today
 
 
 class ScheduleStatus(StrEnum):
-    """Schedule adherence, distinct from `IssueStatus` (the kanban workflow
+    """Schedule adherence, distinct from `TaskStatus` (the kanban workflow
     state) - this is purely "are we going to make the due date"."""
 
     CLOSED = "closed"

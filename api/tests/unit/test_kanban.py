@@ -37,20 +37,20 @@ def test_list_kanban_boards_404_for_unknown_project(
     assert response.status_code == 404
 
 
-def test_moving_a_card_updates_issue_status_and_records_audit_entry(
+def test_moving_a_card_updates_task_status_and_records_audit_entry(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     project_id = _create_project(client, auth_headers)
     board = _default_board(client, project_id, auth_headers)
     in_progress_column = next(c for c in board["columns"] if c["name"] == "In Progress")
 
-    issue = client.post(
-        f"/projects/{project_id}/issues", json={"title": "Fix conveyor jam"}, headers=auth_headers
+    task = client.post(
+        f"/projects/{project_id}/tasks", json={"title": "Fix conveyor jam"}, headers=auth_headers
     ).json()
-    assert issue["status"] == "backlog"
+    assert task["status"] == "backlog"
 
     response = client.patch(
-        f"/issues/{issue['id']}/status",
+        f"/tasks/{task['id']}/status",
         json={"status": in_progress_column["maps_to_statuses"][0]},
         headers=auth_headers,
     )
@@ -58,8 +58,11 @@ def test_moving_a_card_updates_issue_status_and_records_audit_entry(
     assert response.json()["status"] == "in_progress"
 
     timeline = client.get(f"/projects/{project_id}/timeline", headers=auth_headers).json()
-    status_change = next(e for e in timeline if e["action"] == "issue.status_changed")
-    assert status_change["diff"] == {"from": "backlog", "to": "in_progress"}
+    status_change = next(e for e in timeline if e["action"] == "task.status_changed")
+    assert status_change["diff"] == {
+        "old_status": "backlog",
+        "new_status": "in_progress",
+    }
 
 
 def test_create_a_second_board(client: TestClient, auth_headers: dict[str, str]) -> None:
@@ -74,7 +77,7 @@ def test_create_a_second_board(client: TestClient, auth_headers: dict[str, str])
     board = response.json()
     assert board["name"] == "Release view"
     # New boards seed the same 5 default columns as the auto-created one, so
-    # every existing issue lands somewhere immediately.
+    # every existing task lands somewhere immediately.
     assert [c["maps_to_statuses"] for c in board["columns"]] == [
         ["backlog"],
         ["todo"],
@@ -141,9 +144,7 @@ def test_create_column_with_multiple_statuses(
     assert column["order_index"] == 5
 
 
-def test_update_column_name_and_mapping(
-    client: TestClient, auth_headers: dict[str, str]
-) -> None:
+def test_update_column_name_and_mapping(client: TestClient, auth_headers: dict[str, str]) -> None:
     project_id = _create_project(client, auth_headers)
     board = _default_board(client, project_id, auth_headers)
     column = board["columns"][0]

@@ -59,7 +59,7 @@ export function HomeIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-export function IssueIcon({ className = "h-4 w-4" }: IconProps) {
+export function TaskIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
       <circle cx="12" cy="12" r="8.25" />

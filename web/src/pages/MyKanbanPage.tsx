@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { listProjects, type ProjectResponse } from "../api/client";
 import {
-  createIssue,
-  listMyPendingIssues,
-  updateIssueStatus,
-  type IssuePriority,
-  type IssueResponse,
-  type IssueStatus,
-  type IssueType,
-} from "../api/client_issues";
+  createTask,
+  listMyPendingTasks,
+  updateTaskStatus,
+  type TaskPriority,
+  type TaskResponse,
+  type TaskStatus,
+  type TaskType,
+} from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import { PlusIcon } from "../components/icons";
@@ -21,7 +21,7 @@ const INPUT_CLASS =
 
 export default function MyKanbanPage() {
   const { token, user } = useAuth();
-  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [projectFilter, setProjectFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -29,8 +29,8 @@ export default function MyKanbanPage() {
   const [newProjectId, setNewProjectId] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
-  const [newIssueType, setNewIssueType] = useState<IssueType>("task");
-  const [newPriority, setNewPriority] = useState<IssuePriority>("medium");
+  const [newTaskType, setNewTaskType] = useState<TaskType>("task");
+  const [newPriority, setNewPriority] = useState<TaskPriority>("medium");
   const [newStartDate, setNewStartDate] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
@@ -42,9 +42,9 @@ export default function MyKanbanPage() {
     if (!token) return;
     setIsLoading(true);
     setError(null);
-    Promise.all([listMyPendingIssues(token), listProjects(token)])
-      .then(([issueData, projectData]) => {
-        setIssues(issueData);
+    Promise.all([listMyPendingTasks(token), listProjects(token)])
+      .then(([taskData, projectData]) => {
+        setTasks(taskData.filter((task) => task.parent_task_id === null));
         setProjects(projectData);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your tasks"))
@@ -52,32 +52,32 @@ export default function MyKanbanPage() {
   }, [token]);
 
   const projectsWithTasks = useMemo(() => {
-    const projectIds = new Set(issues.map((issue) => issue.project_id));
+    const projectIds = new Set(tasks.map((task) => task.project_id));
     return projects.filter((project) => projectIds.has(project.id));
-  }, [issues, projects]);
+  }, [tasks, projects]);
 
-  const visibleIssues = useMemo(() => {
+  const visibleTasks = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return issues.filter(
-      (issue) =>
-        (!projectFilter || issue.project_id === projectFilter) &&
-        (!normalizedSearch || issue.title.toLowerCase().includes(normalizedSearch)),
+    return tasks.filter(
+      (task) =>
+        (!projectFilter || task.project_id === projectFilter) &&
+        (!normalizedSearch || task.title.toLowerCase().includes(normalizedSearch)),
     );
-  }, [issues, projectFilter, search]);
+  }, [tasks, projectFilter, search]);
 
-  async function handleMoveIssue(issueId: string, status: IssueStatus) {
+  async function handleMoveTask(taskId: string, status: TaskStatus) {
     if (!token) return;
-    const previous = issues;
+    const previous = tasks;
     setError(null);
-    setIssues((current) =>
+    setTasks((current) =>
       status === "done"
-        ? current.filter((issue) => issue.id !== issueId)
-        : current.map((issue) => (issue.id === issueId ? { ...issue, status } : issue)),
+        ? current.filter((task) => task.id !== taskId)
+        : current.map((task) => (task.id === taskId ? { ...task, status } : task)),
     );
     try {
-      await updateIssueStatus(token, issueId, status);
+      await updateTaskStatus(token, taskId, status);
     } catch (err) {
-      setIssues(previous);
+      setTasks(previous);
       setError(err instanceof Error ? err.message : "Failed to move task");
     }
   }
@@ -105,21 +105,21 @@ export default function MyKanbanPage() {
     setIsCreating(true);
     setCreateError(null);
     try {
-      const created = await createIssue(token, newProjectId, {
+      const created = await createTask(token, newProjectId, {
         title: newTitle.trim(),
         description: newDescription.trim() || null,
-        issue_type: newIssueType,
+        task_type: newTaskType,
         priority: newPriority,
         assignee_id: user.id,
         start_date: newStartDate || null,
         due_date: newDueDate || null,
       });
-      setIssues((current) => [created, ...current]);
+      setTasks((current) => [created, ...current]);
       if (projectFilter && projectFilter !== created.project_id) setProjectFilter("");
       setSearch("");
       setNewTitle("");
       setNewDescription("");
-      setNewIssueType("task");
+      setNewTaskType("task");
       setNewPriority("medium");
       setNewStartDate("");
       setNewDueDate("");
@@ -140,7 +140,7 @@ export default function MyKanbanPage() {
             <p className="mt-1 text-sm text-slate-500">
               {isLoading
                 ? "Loading your assigned work..."
-                : `${issues.length} pending ${issues.length === 1 ? "task" : "tasks"} across ${projectsWithTasks.length} ${projectsWithTasks.length === 1 ? "project" : "projects"}`}
+                : `${tasks.length} pending ${tasks.length === 1 ? "task" : "tasks"} across ${projectsWithTasks.length} ${projectsWithTasks.length === 1 ? "project" : "projects"}`}
               {user?.full_name ? ` for ${user.full_name}` : ""}
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function MyKanbanPage() {
               <div key={index} className="h-80 animate-pulse rounded-lg bg-ink-900" />
             ))}
           </div>
-        ) : issues.length === 0 ? (
+        ) : tasks.length === 0 ? (
           <div className="rounded-lg border border-dashed border-ink-700 bg-ink-900/50 px-6 py-16 text-center">
             <h2 className="text-base font-medium text-slate-200">You're all caught up</h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -199,9 +199,9 @@ export default function MyKanbanPage() {
           </div>
         ) : (
           <PersonalKanbanBoard
-            issues={visibleIssues}
+            tasks={visibleTasks}
             projects={projects}
-            onMoveIssue={handleMoveIssue}
+            onMoveTask={handleMoveTask}
           />
         )}
       </div>
@@ -259,8 +259,8 @@ export default function MyKanbanPage() {
               <label>
                 <span className="mb-1 block text-xs font-medium text-slate-400">Type</span>
                 <select
-                  value={newIssueType}
-                  onChange={(event) => setNewIssueType(event.target.value as IssueType)}
+                  value={newTaskType}
+                  onChange={(event) => setNewTaskType(event.target.value as TaskType)}
                   className={INPUT_CLASS}
                 >
                   <option value="task">Task</option>
@@ -273,7 +273,7 @@ export default function MyKanbanPage() {
                 <span className="mb-1 block text-xs font-medium text-slate-400">Priority</span>
                 <select
                   value={newPriority}
-                  onChange={(event) => setNewPriority(event.target.value as IssuePriority)}
+                  onChange={(event) => setNewPriority(event.target.value as TaskPriority)}
                   className={INPUT_CLASS}
                 >
                   <option value="low">Low</option>

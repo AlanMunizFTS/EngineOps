@@ -165,9 +165,7 @@ def test_delete_measurement_type(client: TestClient, auth_headers: dict[str, str
         headers=auth_headers,
     )
 
-    response = client.delete(
-        f"/measurement-types/{measurement_type['id']}", headers=auth_headers
-    )
+    response = client.delete(f"/measurement-types/{measurement_type['id']}", headers=auth_headers)
     assert response.status_code == 204
 
     listed = client.get(f"/projects/{project_id}/measurement-types", headers=auth_headers).json()

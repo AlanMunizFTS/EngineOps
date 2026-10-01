@@ -1,5 +1,5 @@
 """Shared cell styling for the project export workbook - colors chosen to
-match the web app's own palette (IssueBadges.tsx PRIORITY_COLORS / the
+match the web app's own palette (TaskBadges.tsx PRIORITY_COLORS / the
 Schedule Gantt bar colors in SchedulePage.tsx) so the Excel export looks like
 a snapshot of the app, not a different color scheme."""
 

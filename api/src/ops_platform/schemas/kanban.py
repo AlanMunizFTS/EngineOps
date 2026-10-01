@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from ops_platform.domain.entities import IssueStatus
+from ops_platform.domain.entities import TaskStatus
 
 
 class KanbanColumnResponse(BaseModel):
@@ -10,7 +10,7 @@ class KanbanColumnResponse(BaseModel):
     board_id: UUID
     name: str
     order_index: int
-    maps_to_statuses: list[IssueStatus]
+    maps_to_statuses: list[TaskStatus]
 
 
 class KanbanBoardResponse(BaseModel):
@@ -30,12 +30,12 @@ class KanbanBoardRenameRequest(BaseModel):
 
 class KanbanColumnCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    maps_to_statuses: list[IssueStatus] = Field(default_factory=list)
+    maps_to_statuses: list[TaskStatus] = Field(default_factory=list)
 
 
 class KanbanColumnUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    maps_to_statuses: list[IssueStatus] = Field(default_factory=list)
+    maps_to_statuses: list[TaskStatus] = Field(default_factory=list)
 
 
 class KanbanColumnReorderRequest(BaseModel):

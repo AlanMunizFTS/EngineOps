@@ -3,13 +3,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from ops_platform.domain.entities import IssueStatus, KanbanBoard, KanbanColumn
+from ops_platform.domain.entities import KanbanBoard, KanbanColumn, TaskStatus
 
 
 class KanbanRepository(ABC):
     """Port for a project's kanban boards. A project can have any number of
     boards (docs/architecture/adr/0010-dynamic-kanban-boards.md); each column
-    maps to zero or more `IssueStatus` values and card membership is derived
+    maps to zero or more `TaskStatus` values and card membership is derived
     entirely from that mapping - there's no separate card-placement table."""
 
     @abstractmethod
@@ -22,7 +22,7 @@ class KanbanRepository(ABC):
     @abstractmethod
     async def create_board(self, project_id: UUID, name: str) -> KanbanBoard:
         """Seeds the same 5 default status-mapped columns as
-        `create_default_board`, so the board shows every existing issue
+        `create_default_board`, so the board shows every existing Task
         immediately rather than starting blank. The caller renames/remaps/
         deletes/adds columns from there via the column methods below."""
         ...
@@ -44,14 +44,14 @@ class KanbanRepository(ABC):
 
     @abstractmethod
     async def create_column(
-        self, board_id: UUID, name: str, maps_to_statuses: list[IssueStatus]
+        self, board_id: UUID, name: str, maps_to_statuses: list[TaskStatus]
     ) -> KanbanColumn:
         """Appends the column at the end of the board's column order."""
         ...
 
     @abstractmethod
     async def update_column(
-        self, column_id: UUID, name: str, maps_to_statuses: list[IssueStatus]
+        self, column_id: UUID, name: str, maps_to_statuses: list[TaskStatus]
     ) -> KanbanColumn: ...
 
     @abstractmethod

@@ -16,7 +16,7 @@ class AuditLogRepository(ABC):
 
     @abstractmethod
     async def list_for_entity(self, entity_type: str, entity_id: UUID) -> list[AuditLogEntry]:
-        """A single entity's full change history (e.g. one issue's status
+        """A single entity's full change history (e.g. one task's status
         transitions) - same underlying table as `list_for_project`, filtered
         narrower. Ordered oldest first."""
         ...

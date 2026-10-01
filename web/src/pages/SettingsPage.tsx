@@ -12,10 +12,10 @@ import {
   type ProjectResponse,
   type UserSummaryResponse,
 } from "../api/client";
-import { deleteIssue, listProjectIssues, type IssueResponse } from "../api/client_issues";
+import { deleteTask, listProjectTasks, type TaskResponse } from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
-import { PriorityBadge, StatusBadge } from "../components/IssueBadges";
+import { PriorityBadge, StatusBadge } from "../components/TaskBadges";
 import ProjectTabs from "../components/ProjectTabs";
 import { TrashIcon } from "../components/icons";
 
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const { token, user } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
-  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [candidates, setCandidates] = useState<UserSummaryResponse[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
@@ -40,14 +40,14 @@ export default function SettingsPage() {
   async function loadAll() {
     if (!token || !projectId) return;
     try {
-      const [projectData, issueData, memberData, candidateData] = await Promise.all([
+      const [projectData, taskData, memberData, candidateData] = await Promise.all([
         getProject(token, projectId),
-        listProjectIssues(token, projectId),
+        listProjectTasks(token, projectId),
         listProjectMembers(token, projectId),
         listMemberCandidates(token, projectId),
       ]);
       setProject(projectData);
-      setIssues(issueData);
+      setTasks(taskData);
       setMembers(memberData);
       setCandidates(candidateData);
     } catch (err) {
@@ -55,14 +55,14 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDeleteIssue(issue: IssueResponse) {
+  async function handleDeleteTask(task: TaskResponse) {
     if (!token) return;
-    if (!window.confirm(`Delete "${issue.title}"? This can't be undone.`)) return;
+    if (!window.confirm(`Delete "${task.title}"? This can't be undone.`)) return;
     try {
-      await deleteIssue(token, issue.id);
-      setIssues((current) => current.filter((i) => i.id !== issue.id));
+      await deleteTask(token, task.id);
+      setTasks((current) => current.filter((i) => i.id !== task.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete issue");
+      setError(err instanceof Error ? err.message : "Failed to delete task");
     }
   }
 
@@ -109,7 +109,7 @@ export default function SettingsPage() {
   async function handleDeleteProject() {
     if (!token || !projectId || !project) return;
     const confirmed = window.confirm(
-      `Delete project "${project.name}"? All of its issues, boards, materials, files, and history will be permanently deleted. This can't be undone.`,
+      `Delete project "${project.name}"? All of its tasks, boards, materials, files, and history will be permanently deleted. This can't be undone.`,
     );
     if (!confirmed) return;
 
@@ -199,35 +199,37 @@ export default function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1 text-sm font-semibold text-slate-100">Issues</h2>
+          <h2 className="mb-1 text-sm font-semibold text-slate-100">Tasks</h2>
           <p className="mb-3 text-xs text-slate-500">
-            Deleting an issue removes its comments, labels, and history. Subtasks are kept and
-            un-linked from their parent rather than deleted.
+            Standalone Tasks and Subtasks can be deleted. A Task containing Subtasks cannot be
+            deleted until those Subtasks are moved or deleted.
           </p>
           <div className="divide-y divide-ink-800 rounded-md border border-ink-800 bg-ink-900">
-            {issues.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">No issues in this project yet.</p>
+            {tasks.length === 0 ? (
+              <p className="p-4 text-sm text-slate-500">No tasks in this project yet.</p>
             ) : (
-              issues.map((issue) => (
+              tasks.map((task) => (
                 <div
-                  key={issue.id}
+                  key={task.id}
                   className="flex flex-wrap items-center gap-2 p-3 text-sm transition-colors hover:bg-ink-800"
                 >
-                  <StatusBadge status={issue.status} />
+                  <StatusBadge status={task.status} />
                   <Link
-                    to={`/projects/${projectId}/issues/${issue.id}`}
+                    to={`/projects/${projectId}/tasks/${task.id}`}
                     className="text-slate-100 hover:text-ember-400 hover:underline"
                   >
-                    {issue.title}
+                    {task.title}
                   </Link>
-                  <PriorityBadge priority={issue.priority} />
+                  <PriorityBadge priority={task.priority} />
                   <button
-                    onClick={() => void handleDeleteIssue(issue)}
-                    title="Delete issue"
-                    className="ml-auto text-slate-600 hover:text-red-400"
+                    onClick={() => void handleDeleteTask(task)}
+                    disabled={task.subtasks_total > 0}
+                    title="Delete task"
+                    className="ml-auto text-slate-600 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
+                  {task.subtasks_total > 0 && <span className="text-xs text-slate-500">This Task contains Subtasks.</span>}
                 </div>
               ))
             )}
@@ -238,7 +240,7 @@ export default function SettingsPage() {
           <section className="rounded-md border border-red-900/70 bg-red-950/20 p-4">
             <h2 className="mb-1 text-sm font-semibold text-red-300">Danger zone</h2>
             <p className="mb-3 text-xs text-slate-400">
-              Permanently delete this project and all of its issues, boards, materials, files,
+              Permanently delete this project and all of its tasks, boards, materials, files,
               members, and history. This action cannot be undone.
             </p>
             <button

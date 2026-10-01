@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from ops_platform.domain.entities import IssuePriority, IssueStatus
+from ops_platform.domain.entities import TaskPriority, TaskStatus
 from ops_platform.domain.scheduling import (
     ScheduleStatus,
     Urgency,
@@ -50,49 +50,49 @@ def test_calculate_urgency_none_without_due_date() -> None:
 
 def test_priority_score_matrix() -> None:
     expected = {
-        (Urgency.LOW, IssuePriority.LOW): 1,
-        (Urgency.LOW, IssuePriority.MEDIUM): 2,
-        (Urgency.LOW, IssuePriority.HIGH): 3,
-        (Urgency.MEDIUM, IssuePriority.LOW): 4,
-        (Urgency.MEDIUM, IssuePriority.MEDIUM): 5,
-        (Urgency.MEDIUM, IssuePriority.HIGH): 6,
-        (Urgency.HIGH, IssuePriority.LOW): 7,
-        (Urgency.HIGH, IssuePriority.MEDIUM): 8,
-        (Urgency.HIGH, IssuePriority.HIGH): 9,
+        (Urgency.LOW, TaskPriority.LOW): 1,
+        (Urgency.LOW, TaskPriority.MEDIUM): 2,
+        (Urgency.LOW, TaskPriority.HIGH): 3,
+        (Urgency.MEDIUM, TaskPriority.LOW): 4,
+        (Urgency.MEDIUM, TaskPriority.MEDIUM): 5,
+        (Urgency.MEDIUM, TaskPriority.HIGH): 6,
+        (Urgency.HIGH, TaskPriority.LOW): 7,
+        (Urgency.HIGH, TaskPriority.MEDIUM): 8,
+        (Urgency.HIGH, TaskPriority.HIGH): 9,
     }
     for (urgency, importance), score in expected.items():
         assert calculate_priority_score(urgency, importance) == score
 
 
 def test_priority_score_urgent_importance_always_ten() -> None:
-    assert calculate_priority_score(Urgency.LOW, IssuePriority.URGENT) == 10
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.URGENT) == 10
-    assert calculate_priority_score(None, IssuePriority.URGENT) == 10
+    assert calculate_priority_score(Urgency.LOW, TaskPriority.URGENT) == 10
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.URGENT) == 10
+    assert calculate_priority_score(None, TaskPriority.URGENT) == 10
 
 
 def test_priority_score_none_without_urgency_or_urgent() -> None:
-    assert calculate_priority_score(None, IssuePriority.HIGH) is None
+    assert calculate_priority_score(None, TaskPriority.HIGH) is None
 
 
 def test_priority_score_overdue_always_ten_regardless_of_importance() -> None:
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.LOW, is_overdue=True) == 10
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.MEDIUM, is_overdue=True) == 10
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.HIGH, is_overdue=True) == 10
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.LOW, is_overdue=True) == 10
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.MEDIUM, is_overdue=True) == 10
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.HIGH, is_overdue=True) == 10
 
 
 def test_priority_score_not_overdue_uses_normal_matrix() -> None:
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.LOW, is_overdue=False) == 7
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.LOW, is_overdue=False) == 7
 
 
 def test_priority_score_zero_when_not_started_overrides_everything() -> None:
-    assert calculate_priority_score(Urgency.HIGH, IssuePriority.URGENT, has_started=False) == 0
+    assert calculate_priority_score(Urgency.HIGH, TaskPriority.URGENT, has_started=False) == 0
     assert (
         calculate_priority_score(
-            Urgency.HIGH, IssuePriority.LOW, is_overdue=True, has_started=False
+            Urgency.HIGH, TaskPriority.LOW, is_overdue=True, has_started=False
         )
         == 0
     )
-    assert calculate_priority_score(None, IssuePriority.URGENT, has_started=False) == 0
+    assert calculate_priority_score(None, TaskPriority.URGENT, has_started=False) == 0
 
 
 def test_working_days_taken() -> None:
@@ -132,22 +132,22 @@ def test_today_in_business_timezone_is_fixed_utc_minus_6() -> None:
 
 
 def test_should_auto_advance_to_todo_when_start_date_arrives() -> None:
-    assert should_auto_advance_to_todo(_WED, IssueStatus.BACKLOG, _WED) is True
-    assert should_auto_advance_to_todo(_WED, IssueStatus.BACKLOG, date(2026, 7, 20)) is True
+    assert should_auto_advance_to_todo(_WED, TaskStatus.BACKLOG, _WED) is True
+    assert should_auto_advance_to_todo(_WED, TaskStatus.BACKLOG, date(2026, 7, 20)) is True
 
 
 def test_should_not_auto_advance_before_start_date() -> None:
-    assert should_auto_advance_to_todo(_WED, IssueStatus.BACKLOG, _THU) is False
+    assert should_auto_advance_to_todo(_WED, TaskStatus.BACKLOG, _THU) is False
 
 
 def test_should_not_auto_advance_without_start_date() -> None:
-    assert should_auto_advance_to_todo(_WED, IssueStatus.BACKLOG, None) is False
+    assert should_auto_advance_to_todo(_WED, TaskStatus.BACKLOG, None) is False
 
 
-def test_should_not_auto_advance_issues_already_moved_out_of_backlog() -> None:
-    assert should_auto_advance_to_todo(_WED, IssueStatus.TODO, _WED) is False
-    assert should_auto_advance_to_todo(_WED, IssueStatus.IN_PROGRESS, _WED) is False
-    assert should_auto_advance_to_todo(_WED, IssueStatus.DONE, _WED) is False
+def test_should_not_auto_advance_tasks_already_moved_out_of_backlog() -> None:
+    assert should_auto_advance_to_todo(_WED, TaskStatus.TODO, _WED) is False
+    assert should_auto_advance_to_todo(_WED, TaskStatus.IN_PROGRESS, _WED) is False
+    assert should_auto_advance_to_todo(_WED, TaskStatus.DONE, _WED) is False
 
 
 def test_today_in_business_timezone_ignores_host_local_clock() -> None:

@@ -1,4 +1,4 @@
-// Material (piece traceability) API client - mirrors client_issues.ts.
+// Material (piece traceability) API client - mirrors client_tasks.ts.
 
 import { authFetch } from "./client";
 

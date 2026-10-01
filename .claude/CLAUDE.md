@@ -1,5 +1,25 @@
 # CLAUDE.md
 
+## 0. EngineOps product model
+
+For this repository, the active planning hierarchy is strictly:
+
+```text
+Project → optional Milestone → Task → optional direct Subtasks
+```
+
+Task and Subtask are the same domain entity; `parent_task_id` alone determines hierarchy.
+Never allow Subtask nesting, cross-project parents, self-parenting, or cycles. Only top-level
+Tasks own `milestone_id` and appear on Project/My Kanban. Schedule supports one child level.
+Task completion and deletion invariants belong in application services, not routes, adapters,
+or React. `docs/architecture/adr/0016-task-hierarchy.md` is authoritative.
+
+Issue is historical terminology only. It may remain in pre-0027 Alembic revisions and
+superseded ADRs, but must not be used by active application code or current product guidance.
+
+During any destructive project-data migration, preserve `users`, `roles`, `user_roles`,
+password hashes, account status, and role assignments. Never rewrite historical migrations.
+
 Persistent instructions for Claude Code on Sebastian's projects (Controls/Vision Engineer,
 Martinrea International, FTS/Factory of the Future team — AI-powered visual inspection,
 edge AI on NVIDIA Jetson, industrial database architecture, PLC/HMI integration,

@@ -155,9 +155,7 @@ def test_delete_node_404_for_unknown_node(
 ) -> None:
     project_id = _create_project(client, auth_headers)
 
-    response = client.delete(
-        f"/projects/{project_id}/tree/{uuid.uuid4()}", headers=auth_headers
-    )
+    response = client.delete(f"/projects/{project_id}/tree/{uuid.uuid4()}", headers=auth_headers)
     assert response.status_code == 404
 
 

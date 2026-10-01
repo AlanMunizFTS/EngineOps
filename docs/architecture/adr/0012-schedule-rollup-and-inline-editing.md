@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted. Follow-on from ADR 0011, which explicitly deferred parent date
-rollup as a "future enhancement."
+Superseded by [ADR 0016](0016-task-hierarchy.md). This remains the historical
+record of the recursive Issue schedule behavior.
 
 ## Context
 

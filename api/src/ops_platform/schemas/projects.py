@@ -48,5 +48,3 @@ class UserSummaryResponse(BaseModel):
     id: UUID
     email: str
     full_name: str
-
-

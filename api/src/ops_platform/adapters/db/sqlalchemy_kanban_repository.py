@@ -5,19 +5,19 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models_issues import KanbanBoardORM, KanbanColumnORM
-from ops_platform.domain.entities import IssueStatus, KanbanBoard, KanbanColumn
+from ops_platform.adapters.db.orm_models_tasks import KanbanBoardORM, KanbanColumnORM
+from ops_platform.domain.entities import KanbanBoard, KanbanColumn, TaskStatus
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 
 # Fixed default columns seeded on project creation - see
 # docs/architecture/adr/0010-dynamic-kanban-boards.md. Users can rename,
 # remap, delete, and add to these freely afterward.
-_DEFAULT_COLUMNS: list[tuple[str, IssueStatus]] = [
-    ("Backlog", IssueStatus.BACKLOG),
-    ("To Do", IssueStatus.TODO),
-    ("In Progress", IssueStatus.IN_PROGRESS),
-    ("In Review", IssueStatus.IN_REVIEW),
-    ("Done", IssueStatus.DONE),
+_DEFAULT_COLUMNS: list[tuple[str, TaskStatus]] = [
+    ("Backlog", TaskStatus.BACKLOG),
+    ("To Do", TaskStatus.TODO),
+    ("In Progress", TaskStatus.IN_PROGRESS),
+    ("In Review", TaskStatus.IN_REVIEW),
+    ("Done", TaskStatus.DONE),
 ]
 
 
@@ -76,7 +76,7 @@ class SqlAlchemyKanbanRepository(KanbanRepository):
 
     async def create_board(self, project_id: UUID, name: str) -> KanbanBoard:
         """Seeds the same 5 default columns as `create_default_board` - a new
-        board is immediately useful (every existing issue lands somewhere)
+        board is immediately useful (every existing task lands somewhere)
         rather than starting as a blank slate the user must configure before
         anything shows up. Freely rename/remap/delete/add from there."""
         orm_board = KanbanBoardORM(project_id=project_id, name=name)
@@ -125,7 +125,7 @@ class SqlAlchemyKanbanRepository(KanbanRepository):
         return _to_column(orm_column) if orm_column else None
 
     async def create_column(
-        self, board_id: UUID, name: str, maps_to_statuses: list[IssueStatus]
+        self, board_id: UUID, name: str, maps_to_statuses: list[TaskStatus]
     ) -> KanbanColumn:
         orm_board = await self._get_board_or_raise(board_id)
         next_index = len(orm_board.columns)
@@ -141,7 +141,7 @@ class SqlAlchemyKanbanRepository(KanbanRepository):
         return _to_column(orm_column)
 
     async def update_column(
-        self, column_id: UUID, name: str, maps_to_statuses: list[IssueStatus]
+        self, column_id: UUID, name: str, maps_to_statuses: list[TaskStatus]
     ) -> KanbanColumn:
         orm_column = await self._get_column_or_raise(column_id)
         orm_column.name = name

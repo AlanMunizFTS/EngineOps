@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Superseded by [ADR 0016](0016-task-hierarchy.md). The useful
+`parent_assigned_at` ordering concept is retained for Tasks, but the Issue
+architecture described here is no longer active.
 
 ## Context
 

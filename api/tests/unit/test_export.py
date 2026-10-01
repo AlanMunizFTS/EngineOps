@@ -22,7 +22,7 @@ def test_export_returns_workbook_with_kanban_and_timeline_sheets(
     project_id = _create_project(client, auth_headers)
     today = date.today()
     client.post(
-        f"/projects/{project_id}/issues",
+        f"/projects/{project_id}/tasks",
         json={
             "title": "Cut fixture rework",
             "start_date": today.isoformat(),
@@ -61,16 +61,16 @@ def test_export_returns_workbook_with_kanban_and_timeline_sheets(
     )
 
 
-def test_export_excludes_parent_issues_from_kanban_sheet(
+def test_export_includes_only_top_level_tasks_in_kanban_sheet(
     client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     project_id = _create_project(client, auth_headers)
     parent = client.post(
-        f"/projects/{project_id}/issues", json={"title": "Parent activity"}, headers=auth_headers
+        f"/projects/{project_id}/tasks", json={"title": "Parent activity"}, headers=auth_headers
     ).json()
     client.post(
-        f"/projects/{project_id}/issues",
-        json={"title": "Child activity", "parent_issue_id": parent["id"]},
+        f"/tasks/{parent['id']}/subtasks",
+        json={"title": "Child activity"},
         headers=auth_headers,
     )
 
@@ -78,5 +78,5 @@ def test_export_excludes_parent_issues_from_kanban_sheet(
     workbook = openpyxl.load_workbook(io.BytesIO(response.content))
     kanban_titles = {row[1].value for row in workbook["Kanban"].iter_rows(min_row=2)}
 
-    assert "Child activity" in kanban_titles
-    assert "Parent activity" not in kanban_titles
+    assert "Parent activity" in kanban_titles
+    assert "Child activity" not in kanban_titles

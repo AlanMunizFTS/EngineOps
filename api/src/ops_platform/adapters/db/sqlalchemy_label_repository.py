@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models_issues import LabelORM
+from ops_platform.adapters.db.orm_models_tasks import LabelORM
 from ops_platform.domain.entities import Label
 from ops_platform.domain.ports.label_repository import LabelRepository
 

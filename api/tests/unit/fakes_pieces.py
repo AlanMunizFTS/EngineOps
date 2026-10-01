@@ -1,6 +1,6 @@
 """In-memory fake for the Material/Piece traceability repository port - mirrors
 the SQL adapter's filtering/upsert semantics without a real Postgres
-connection (see fakes_issues.py for the same pattern on the issue-tracking
+connection (see fakes_tasks.py for the same pattern on the task-tracking
 context)."""
 
 from __future__ import annotations

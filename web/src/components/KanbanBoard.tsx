@@ -4,17 +4,17 @@ import { Link } from "react-router-dom";
 
 import type { ProjectMemberDetailResponse } from "../api/client";
 import type {
-  IssuePriority,
-  IssueResponse,
-  IssueStatus,
+  TaskPriority,
+  TaskResponse,
+  TaskStatus,
   KanbanColumnResponse,
-} from "../api/client_issues";
-import { PRIORITY_COLORS, PriorityScoreChip, STATUS_LABELS } from "./IssueBadges";
+} from "../api/client_tasks";
+import { PRIORITY_COLORS, PriorityScoreChip, STATUS_LABELS } from "./TaskBadges";
 import { PlusIcon, TrashIcon } from "./icons";
 import Modal, { ModalActions } from "./Modal";
 
-const ALL_STATUSES: IssueStatus[] = ["backlog", "todo", "in_progress", "in_review", "done"];
-const PRIORITY_OPTIONS: IssuePriority[] = ["low", "medium", "high", "urgent"];
+const ALL_STATUSES: TaskStatus[] = ["backlog", "todo", "in_progress", "in_review", "done"];
+const PRIORITY_OPTIONS: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
 // Highest Priority Score first, so the card that most needs attention is
 // always the top one in its column. Cards with no score (done, or no
@@ -22,7 +22,7 @@ const PRIORITY_OPTIONS: IssuePriority[] = ["low", "medium", "high", "urgent"];
 // them by. Ties (e.g. two cards both scored 10 while overdue) fall back to
 // whichever has fewer days left until its due_date, so the more time-
 // critical of the two still surfaces above the other.
-function compareCards(a: IssueResponse, b: IssueResponse): number {
+function compareCards(a: TaskResponse, b: TaskResponse): number {
   const scoreA = a.priority_score;
   const scoreB = b.priority_score;
   if (scoreA === null && scoreB === null) return 0;
@@ -39,22 +39,22 @@ function compareCards(a: IssueResponse, b: IssueResponse): number {
 }
 
 function KanbanCard({
-  issue,
+  task,
   projectId,
   assigneeName,
   members,
-  onUpdateIssue,
-  isSubtask = false,
+  onUpdateTask,
+  milestoneName,
 }: {
-  issue: IssueResponse;
+  task: TaskResponse;
   projectId: string;
   assigneeName: string | null;
   members: ProjectMemberDetailResponse[];
-  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
-  isSubtask?: boolean;
+  onUpdateTask: (taskId: string, fields: { assignee_id?: string | null; priority?: TaskPriority }) => void;
+  milestoneName: string | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: issue.id,
+    id: task.id,
   });
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -67,17 +67,15 @@ function KanbanCard({
       {...listeners}
       {...attributes}
       className={`cursor-grab space-y-1 rounded-md border border-ink-700 bg-ink-800 p-2 text-sm active:cursor-grabbing ${
-        isSubtask ? "ml-2 border-l-2 border-l-ember-500" : ""
-      } ${
         isDragging ? "z-10 opacity-70" : ""
       }`}
     >
       <Link
-        to={`/projects/${projectId}/issues/${issue.id}`}
+        to={`/projects/${projectId}/tasks/${task.id}`}
         onClick={(e) => isDragging && e.preventDefault()}
         className="text-slate-100 hover:text-ember-400"
       >
-        {issue.title}
+        {task.title}
       </Link>
       <div
         className="flex items-center gap-1"
@@ -86,13 +84,13 @@ function KanbanCard({
         onPointerDown={(event) => event.stopPropagation()}
       >
         <select
-          value={issue.priority}
+          value={task.priority}
           onChange={(event) =>
-            onUpdateIssue(issue.id, { priority: event.target.value as IssuePriority })
+            onUpdateTask(task.id, { priority: event.target.value as TaskPriority })
           }
-          aria-label={`Priority for ${issue.title}`}
+          aria-label={`Priority for ${task.title}`}
           title="Change priority"
-          className={`cursor-pointer appearance-none rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none focus:ring-1 focus:ring-ember-500 ${PRIORITY_COLORS[issue.priority]}`}
+          className={`cursor-pointer appearance-none rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none focus:ring-1 focus:ring-ember-500 ${PRIORITY_COLORS[task.priority]}`}
         >
           {PRIORITY_OPTIONS.map((priority) => (
             <option key={priority} value={priority} className="bg-ink-900 text-slate-200">
@@ -100,13 +98,13 @@ function KanbanCard({
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{issue.issue_type}</span>
+        <span className="text-xs text-slate-500">{task.task_type}</span>
         <span className="ml-auto flex min-w-0 items-center gap-1">
-          {issue.priority_score !== null && <PriorityScoreChip score={issue.priority_score} />}
+          {task.priority_score !== null && <PriorityScoreChip score={task.priority_score} />}
         <select
-          value={issue.assignee_id ?? ""}
-          onChange={(event) => onUpdateIssue(issue.id, { assignee_id: event.target.value || null })}
-          aria-label={`Responsible person for ${issue.title}`}
+          value={task.assignee_id ?? ""}
+          onChange={(event) => onUpdateTask(task.id, { assignee_id: event.target.value || null })}
+          aria-label={`Responsible person for ${task.title}`}
           title={assigneeName ?? "Unassigned"}
           className="max-w-24 cursor-pointer appearance-none truncate rounded-full border-0 bg-ink-700 px-2 py-0.5 text-xs font-medium text-slate-300 outline-none focus:ring-1 focus:ring-ember-500"
         >
@@ -123,6 +121,10 @@ function KanbanCard({
         </select>
         </span>
       </div>
+      <div className="flex items-center justify-between text-[11px] text-slate-500">
+        <span className="truncate">{milestoneName ? `Milestone: ${milestoneName}` : "No milestone"}</span>
+        <span>Subtasks: {task.subtasks_completed} / {task.subtasks_total}</span>
+      </div>
     </div>
   );
 }
@@ -131,10 +133,10 @@ function StatusCheckboxes({
   selected,
   onChange,
 }: {
-  selected: IssueStatus[];
-  onChange: (statuses: IssueStatus[]) => void;
+  selected: TaskStatus[];
+  onChange: (statuses: TaskStatus[]) => void;
 }) {
-  function toggle(status: IssueStatus) {
+  function toggle(status: TaskStatus) {
     onChange(
       selected.includes(status)
         ? selected.filter((s) => s !== status)
@@ -161,54 +163,35 @@ function StatusCheckboxes({
 
 function KanbanColumnView({
   column,
-  issues,
+  tasks,
   projectId,
   assigneeNameById,
-  issueById,
+  milestoneNameById,
   members,
-  onUpdateIssue,
+  onUpdateTask,
   onRenameColumn,
   onDeleteColumn,
 }: {
   column: KanbanColumnResponse;
-  issues: IssueResponse[];
+  tasks: TaskResponse[];
   projectId: string;
   assigneeNameById: Map<string, string>;
-  issueById: Map<string, IssueResponse>;
+  milestoneNameById: Map<string, string>;
   members: ProjectMemberDetailResponse[];
-  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
-  onRenameColumn: (columnId: string, name: string, mapsToStatuses: IssueStatus[]) => void;
+  onUpdateTask: (taskId: string, fields: { assignee_id?: string | null; priority?: TaskPriority }) => void;
+  onRenameColumn: (columnId: string, name: string, mapsToStatuses: TaskStatus[]) => void;
   onDeleteColumn: (columnId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(column.name);
-  const [statuses, setStatuses] = useState<IssueStatus[]>(column.maps_to_statuses);
+  const [statuses, setStatuses] = useState<TaskStatus[]>(column.maps_to_statuses);
 
   function handleSave() {
     if (!name.trim()) return;
     onRenameColumn(column.id, name.trim(), statuses);
     setIsEditing(false);
   }
-
-  // Parents are schedule rollups and therefore don't have a Kanban status of
-  // their own. Group their child cards beneath a title in each column instead
-  // of hiding the parent relationship altogether.
-  const cardGroups = useMemo(() => {
-    const groups = new Map<string, { parent: IssueResponse | null; issues: IssueResponse[] }>();
-
-    for (const issue of issues) {
-      const parent = issue.parent_issue_id ? (issueById.get(issue.parent_issue_id) ?? null) : null;
-      const key = parent ? parent.id : issue.id;
-      const group = groups.get(key) ?? { parent, issues: [] };
-      group.issues.push(issue);
-      groups.set(key, group);
-    }
-
-    return [...groups.values()]
-      .map((group) => ({ ...group, issues: group.issues.sort(compareCards) }))
-      .sort((a, b) => compareCards(a.issues[0], b.issues[0]));
-  }, [issues, issueById]);
 
   return (
     <div
@@ -249,7 +232,7 @@ function KanbanColumnView({
           </button>
           <span className="flex items-center gap-1">
             <span className="rounded-full bg-ink-800 px-1.5 py-0.5 text-slate-500">
-              {issues.length}
+              {tasks.length}
             </span>
             <button
               onClick={() => onDeleteColumn(column.id)}
@@ -262,30 +245,12 @@ function KanbanColumnView({
         </h3>
       )}
       <div className="min-h-16 flex-1 space-y-3">
-        {cardGroups.map((group) => (
-          <div key={group.parent?.id ?? group.issues[0].id} className="space-y-2">
-            {group.parent && (
-              <Link
-                to={`/projects/${projectId}/issues/${group.parent.id}`}
-                className="block truncate border-b border-ink-700 px-1 pb-1 text-xs font-semibold text-slate-400 hover:text-ember-400"
-                title={group.parent.title}
-              >
-                {group.parent.title}
-              </Link>
-            )}
-            {group.issues.map((issue) => (
-              <KanbanCard
-                key={issue.id}
-                issue={issue}
-                projectId={projectId}
-                assigneeName={issue.assignee_id ? (assigneeNameById.get(issue.assignee_id) ?? null) : null}
-                members={members}
-                onUpdateIssue={onUpdateIssue}
-                isSubtask={group.parent !== null}
-              />
-            ))}
-          </div>
-        ))}
+        {tasks.sort(compareCards).map((task) => <KanbanCard
+          key={task.id} task={task} projectId={projectId}
+          assigneeName={task.assignee_id ? (assigneeNameById.get(task.assignee_id) ?? null) : null}
+          members={members} onUpdateTask={onUpdateTask}
+          milestoneName={task.milestone_id ? milestoneNameById.get(task.milestone_id) ?? null : null}
+        />)}
       </div>
     </div>
   );
@@ -294,11 +259,11 @@ function KanbanColumnView({
 function NewColumnForm({
   onCreate,
 }: {
-  onCreate: (name: string, mapsToStatuses: IssueStatus[]) => void;
+  onCreate: (name: string, mapsToStatuses: TaskStatus[]) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [statuses, setStatuses] = useState<IssueStatus[]>([]);
+  const [statuses, setStatuses] = useState<TaskStatus[]>([]);
 
   function handleCreate() {
     if (!name.trim()) return;
@@ -351,60 +316,53 @@ function NewColumnForm({
 
 export default function KanbanBoard({
   columns,
-  issues,
+  tasks,
   members,
   projectId,
-  onMoveIssue,
-  onUpdateIssue,
+  onMoveTask,
+  onUpdateTask,
   onCreateColumn,
   onRenameColumn,
   onDeleteColumn,
+  milestoneNameById = new Map(),
 }: {
   columns: KanbanColumnResponse[];
-  issues: IssueResponse[];
+  tasks: TaskResponse[];
   members: ProjectMemberDetailResponse[];
   projectId: string;
-  onMoveIssue: (issueId: string, status: IssueStatus) => void;
-  onUpdateIssue: (issueId: string, fields: { assignee_id?: string | null; priority?: IssuePriority }) => void;
-  onCreateColumn: (name: string, mapsToStatuses: IssueStatus[]) => void;
-  onRenameColumn: (columnId: string, name: string, mapsToStatuses: IssueStatus[]) => void;
+  onMoveTask: (taskId: string, status: TaskStatus) => void;
+  onUpdateTask: (taskId: string, fields: { assignee_id?: string | null; priority?: TaskPriority }) => void;
+  onCreateColumn: (name: string, mapsToStatuses: TaskStatus[]) => void;
+  onRenameColumn: (columnId: string, name: string, mapsToStatuses: TaskStatus[]) => void;
   onDeleteColumn: (columnId: string) => void;
+  milestoneNameById?: Map<string, string>;
 }) {
-  const [pendingMove, setPendingMove] = useState<{ issueId: string; status: IssueStatus } | null>(
+  const [pendingMove, setPendingMove] = useState<{ taskId: string; status: TaskStatus } | null>(
     null,
   );
   const assigneeNameById = useMemo(
     () => new Map(members.map((member) => [member.user_id, member.full_name])),
     [members],
   );
-  const issueById = useMemo(() => new Map(issues.map((issue) => [issue.id, issue])), [issues]);
-
-  // Parent issues track progress via the Schedule rollup, not a status of
-  // their own - they never show up as Kanban cards.
-  const boardIssues = useMemo(() => {
-    const parentIds = new Set(
-      issues.map((issue) => issue.parent_issue_id).filter((id): id is string => id !== null),
-    );
-    return issues.filter((issue) => !parentIds.has(issue.id));
-  }, [issues]);
+  const boardTasks = useMemo(() => tasks.filter((task) => task.parent_task_id === null), [tasks]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
-    const issueId = String(active.id);
+    const taskId = String(active.id);
     const targetColumn = columns.find((c) => c.id === over.id);
     if (!targetColumn || targetColumn.maps_to_statuses.length === 0) return;
     const targetStatus = targetColumn.maps_to_statuses[0];
-    const issue = boardIssues.find((i) => i.id === issueId);
-    if (!issue || issue.status === targetStatus) return;
+    const task = boardTasks.find((i) => i.id === taskId);
+    if (!task || task.status === targetStatus) return;
     if (targetStatus === "done") {
-      setPendingMove({ issueId, status: targetStatus });
+      setPendingMove({ taskId, status: targetStatus });
       return;
     }
-    onMoveIssue(issueId, targetStatus);
+    onMoveTask(taskId, targetStatus);
   }
 
-  const pendingIssue = pendingMove ? boardIssues.find((i) => i.id === pendingMove.issueId) : null;
+  const pendingTask = pendingMove ? boardTasks.find((i) => i.id === pendingMove.taskId) : null;
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
@@ -413,14 +371,14 @@ export default function KanbanBoard({
           <KanbanColumnView
             key={column.id}
             column={column}
-            issues={boardIssues
-              .filter((issue) => column.maps_to_statuses.includes(issue.status))
+            tasks={boardTasks
+              .filter((task) => column.maps_to_statuses.includes(task.status))
               .sort(compareCards)}
             projectId={projectId}
             assigneeNameById={assigneeNameById}
-            issueById={issueById}
+            milestoneNameById={milestoneNameById}
             members={members}
-            onUpdateIssue={onUpdateIssue}
+            onUpdateTask={onUpdateTask}
             onRenameColumn={onRenameColumn}
             onDeleteColumn={onDeleteColumn}
           />
@@ -429,11 +387,11 @@ export default function KanbanBoard({
       </div>
 
       {pendingMove && (
-        <Modal title="Close this activity?" onClose={() => setPendingMove(null)}>
+        <Modal title="Complete this Task?" onClose={() => setPendingMove(null)}>
           <p className="text-sm text-slate-400">
             Marking{" "}
-            <span className="text-slate-200">{pendingIssue?.title ?? "this issue"}</span> as done
-            will record the close date. This can be reopened later by changing its status again.
+            <span className="text-slate-200">{pendingTask?.title ?? "this task"}</span> as done
+            will be completed only if all of its Subtasks are done.
           </p>
           <ModalActions>
             <button
@@ -444,12 +402,12 @@ export default function KanbanBoard({
             </button>
             <button
               onClick={() => {
-                onMoveIssue(pendingMove.issueId, pendingMove.status);
+                onMoveTask(pendingMove.taskId, pendingMove.status);
                 setPendingMove(null);
               }}
               className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ember-600"
             >
-              Close activity
+              Complete Task
             </button>
           </ModalActions>
         </Modal>

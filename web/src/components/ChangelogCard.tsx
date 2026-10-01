@@ -1,5 +1,5 @@
 const CHANGELOG = [
-  { tag: "Phase 2", title: "Issues, kanban board, milestones, and a project-wide timeline" },
+  { tag: "Phase 2", title: "Tasks, kanban board, milestones, and a project-wide timeline" },
   { tag: "Phase 1", title: "Home dashboard, project sidebar, and cross-project activity feed" },
   { tag: "Phase 0", title: "JWT auth, Docker Compose stack, and CI" },
 ];

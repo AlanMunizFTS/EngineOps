@@ -5,11 +5,13 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AllProjectsPage from "./pages/AllProjectsPage";
 import HomePage from "./pages/HomePage";
-import IssueDetailPage from "./pages/IssueDetailPage";
-import IssuesPage from "./pages/IssuesPage";
+import TaskDetailPage from "./pages/TaskDetailPage";
+import TasksPage from "./pages/TasksPage";
 import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
 import MaterialPage from "./pages/MaterialPage";
+import MilestoneDetailPage from "./pages/MilestoneDetailPage";
+import MilestonesPage from "./pages/MilestonesPage";
 import MyKanbanPage from "./pages/MyKanbanPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import SchedulePage from "./pages/SchedulePage";
@@ -63,18 +65,26 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/projects/:projectId/issues"
+        path="/projects/:projectId/milestones"
+        element={<ProtectedRoute><MilestonesPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/projects/:projectId/milestones/:milestoneId"
+        element={<ProtectedRoute><MilestoneDetailPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/projects/:projectId/tasks"
         element={
           <ProtectedRoute>
-            <IssuesPage />
+            <TasksPage />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/projects/:projectId/issues/:issueId"
+        path="/projects/:projectId/tasks/:taskId"
         element={
           <ProtectedRoute>
-            <IssueDetailPage />
+            <TaskDetailPage />
           </ProtectedRoute>
         }
       />

@@ -12,14 +12,17 @@ from ops_platform.adapters.db.sqlalchemy_audit_recorder import SqlAlchemyAuditRe
 from ops_platform.adapters.db.sqlalchemy_file_tree_repository import (
     SqlAlchemyFileTreeRepository,
 )
-from ops_platform.adapters.db.sqlalchemy_issue_comment_repository import (
-    SqlAlchemyIssueCommentRepository,
-)
-from ops_platform.adapters.db.sqlalchemy_issue_repository import SqlAlchemyIssueRepository
 from ops_platform.adapters.db.sqlalchemy_kanban_repository import SqlAlchemyKanbanRepository
 from ops_platform.adapters.db.sqlalchemy_label_repository import SqlAlchemyLabelRepository
+from ops_platform.adapters.db.sqlalchemy_milestone_repository import (
+    SqlAlchemyMilestoneRepository,
+)
 from ops_platform.adapters.db.sqlalchemy_piece_repository import SqlAlchemyPieceRepository
 from ops_platform.adapters.db.sqlalchemy_project_repository import SqlAlchemyProjectRepository
+from ops_platform.adapters.db.sqlalchemy_task_comment_repository import (
+    SqlAlchemyTaskCommentRepository,
+)
+from ops_platform.adapters.db.sqlalchemy_task_repository import SqlAlchemyTaskRepository
 from ops_platform.adapters.db.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from ops_platform.core.security import decode_access_token
 from ops_platform.db.session import get_db_session
@@ -27,12 +30,13 @@ from ops_platform.domain.entities import User
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.file_tree_repository import FileTreeRepository
-from ops_platform.domain.ports.issue_comment_repository import IssueCommentRepository
-from ops_platform.domain.ports.issue_repository import IssueRepository
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.label_repository import LabelRepository
+from ops_platform.domain.ports.milestone_repository import MilestoneRepository
 from ops_platform.domain.ports.piece_repository import PieceRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
+from ops_platform.domain.ports.task_comment_repository import TaskCommentRepository
+from ops_platform.domain.ports.task_repository import TaskRepository
 from ops_platform.domain.ports.user_repository import UserRepository
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -56,16 +60,22 @@ def get_label_repository(
     return SqlAlchemyLabelRepository(session)
 
 
-def get_issue_repository(
+def get_task_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> IssueRepository:
-    return SqlAlchemyIssueRepository(session)
+) -> TaskRepository:
+    return SqlAlchemyTaskRepository(session)
 
 
-def get_issue_comment_repository(
+def get_task_comment_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> IssueCommentRepository:
-    return SqlAlchemyIssueCommentRepository(session)
+) -> TaskCommentRepository:
+    return SqlAlchemyTaskCommentRepository(session)
+
+
+def get_milestone_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MilestoneRepository:
+    return SqlAlchemyMilestoneRepository(session)
 
 
 def get_kanban_repository(

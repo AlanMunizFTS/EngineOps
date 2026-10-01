@@ -3,60 +3,58 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from ops_platform.domain.entities import IssuePriority, IssueStatus, IssueType
+from ops_platform.domain.entities import TaskPriority, TaskStatus, TaskType
 from ops_platform.domain.scheduling import ScheduleStatus, Urgency
 from ops_platform.schemas.labels import LabelResponse
 
 
-class IssueCreateRequest(BaseModel):
+class TaskCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    issue_type: IssueType = IssueType.TASK
-    priority: IssuePriority = IssuePriority.MEDIUM
+    task_type: TaskType = TaskType.TASK
+    priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: UUID | None = None
-    parent_issue_id: UUID | None = None
+    milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
 
 
-class IssueUpdateRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
+class TaskUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    issue_type: IssueType
-    priority: IssuePriority
+    task_type: TaskType | None = None
+    priority: TaskPriority | None = None
     assignee_id: UUID | None = None
-    parent_issue_id: UUID | None = None
+    milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
     closed_at: date | None = None
 
 
-class IssueStatusUpdateRequest(BaseModel):
-    status: IssueStatus
+class TaskStatusUpdateRequest(BaseModel):
+    status: TaskStatus
 
 
-class IssueLabelAttachRequest(BaseModel):
-    label_id: UUID
+class TaskParentUpdateRequest(BaseModel):
+    parent_task_id: UUID | None
 
 
-class IssueResponse(BaseModel):
+class TaskResponse(BaseModel):
     id: UUID
     project_id: UUID
+    milestone_id: UUID | None
+    parent_task_id: UUID | None
     title: str
     description: str | None
-    status: IssueStatus
-    priority: IssuePriority
-    issue_type: IssueType
+    status: TaskStatus
+    priority: TaskPriority
+    task_type: TaskType
     assignee_id: UUID | None
     created_by: UUID | None
     created_at: datetime
+    updated_at: datetime
     closed_at: datetime | None
-    # The business-timezone (UTC-6) calendar day `closed_at` falls on - not
-    # just `closed_at`'s date in UTC, which is a day ahead for roughly six
-    # hours every evening (18:00-23:59 UTC-6). Callers displaying/editing a
-    # "closed on" date must use this field, not slice `closed_at` themselves.
     closed_at_date: date | None
-    parent_issue_id: UUID | None
     parent_assigned_at: datetime | None
     start_date: date | None
     due_date: date | None
@@ -65,21 +63,23 @@ class IssueResponse(BaseModel):
     urgency: Urgency | None
     priority_score: int | None
     schedule_status: ScheduleStatus | None
+    subtasks_total: int
+    subtasks_completed: int
     labels: list[LabelResponse]
 
 
-class IssueCommentCreateRequest(BaseModel):
+class TaskCommentCreateRequest(BaseModel):
     body: str = Field(min_length=1)
 
 
-class IssueCommentUpdateRequest(BaseModel):
+class TaskCommentUpdateRequest(BaseModel):
     body: str = Field(min_length=1)
 
 
-class IssueCommentResponse(BaseModel):
+class TaskCommentResponse(BaseModel):
     id: UUID
-    issue_id: UUID
+    task_id: UUID
     author_id: UUID | None
     body: str
     created_at: datetime
-    edited_at: datetime | None
+    updated_at: datetime

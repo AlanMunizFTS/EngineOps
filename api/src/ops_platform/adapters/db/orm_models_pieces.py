@@ -159,7 +159,7 @@ class PieceORM(Base):
 
 class PieceConditionLinkORM(Base):
     """3NF join table: a piece can carry multiple condition tags, a condition
-    applies to many pieces - same shape as `IssueLabelORM`."""
+    applies to many pieces - the same normalized association-table shape used elsewhere."""
 
     __tablename__ = "piece_condition_links"
 

@@ -16,7 +16,7 @@ from ops_platform.api.deps import (
     get_project_repository,
 )
 from ops_platform.db.session import get_db_session
-from ops_platform.domain.entities import User
+from ops_platform.domain.entities import MeasurementType, User
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
 from ops_platform.domain.ports.piece_repository import PieceRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
@@ -31,7 +31,6 @@ from ops_platform.schemas.pieces import (
     PieceLocationCreateRequest,
     PieceLocationResponse,
 )
-from ops_platform.domain.entities import MeasurementType
 
 router = APIRouter(tags=["piece-catalogs"])
 
@@ -137,9 +136,7 @@ async def create_piece_condition(
     )
 
 
-@router.get(
-    "/projects/{project_id}/piece-conditions", response_model=list[PieceConditionResponse]
-)
+@router.get("/projects/{project_id}/piece-conditions", response_model=list[PieceConditionResponse])
 async def list_piece_conditions(
     project_id: UUID,
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],

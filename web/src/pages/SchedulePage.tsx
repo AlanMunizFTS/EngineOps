@@ -19,18 +19,20 @@ import {
   type ProjectResponse,
 } from "../api/client";
 import {
-  createIssue,
-  updateIssue,
-  updateIssueStatus,
-  listProjectIssues,
-  type IssuePriority,
-  type IssueResponse,
-  type IssueStatus,
-} from "../api/client_issues";
+  createTask,
+  createSubtask,
+  updateTask,
+  updateTaskStatus,
+  updateTaskParent,
+  listProjectTasks,
+  type TaskPriority,
+  type TaskResponse,
+  type TaskStatus,
+} from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import { DownloadIcon, PlusIcon } from "../components/icons";
-import { PRIORITY_COLORS, PriorityScoreChip } from "../components/IssueBadges";
+import { PRIORITY_COLORS, PriorityScoreChip } from "../components/TaskBadges";
 import Modal, { ModalActions } from "../components/Modal";
 import ProjectTabs from "../components/ProjectTabs";
 
@@ -39,8 +41,8 @@ const DAY_WIDTH = 32;
 const HEADER_ROWS = 4;
 const ROW_HEIGHT = 32;
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]; // Date#getDay(): 0=Sun..6=Sat
-const STATUS_OPTIONS: IssueStatus[] = ["backlog", "todo", "in_progress", "in_review", "done"];
-const PRIORITY_OPTIONS: IssuePriority[] = ["low", "medium", "high", "urgent"];
+const STATUS_OPTIONS: TaskStatus[] = ["backlog", "todo", "in_progress", "in_review", "done"];
+const PRIORITY_OPTIONS: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
 const STICKY_COLUMNS = [
   { key: "index", label: "#", width: 56 },
@@ -108,13 +110,13 @@ function nextIso(iso: string): string {
   return isoDate(addDays(parseLocalDate(iso), 1));
 }
 
-function computeBarSegments(issue: IssueResponse, todayIso: string): BarSegment[] {
-  const dueIso = issue.due_date;
+function computeBarSegments(task: TaskResponse, todayIso: string): BarSegment[] {
+  const dueIso = task.due_date;
   if (!dueIso) return [];
-  const startIso = issue.start_date ?? dueIso;
+  const startIso = task.start_date ?? dueIso;
 
-  if (!issue.closed_at_date) {
-    const isLate = issue.schedule_status === "late";
+  if (!task.closed_at_date) {
+    const isLate = task.schedule_status === "late";
     // A late, still-open activity has no closed_at to bound its bar, so it
     // must keep stretching past due_date up to today - otherwise the red
     // "late" bar looks like it stopped at due_date instead of still being
@@ -129,7 +131,7 @@ function computeBarSegments(issue: IssueResponse, todayIso: string): BarSegment[
   // the raw `closed_at` timestamp's own UTC date here instead would be
   // wrong for roughly six hours every evening (18:00-23:59 UTC-6, when the
   // UTC calendar day has already rolled to tomorrow).
-  const closedIso = issue.closed_at_date;
+  const closedIso = task.closed_at_date;
   if (closedIso <= dueIso) {
     const segments: BarSegment[] = [{ startIso, endIso: closedIso, color: "bg-sky-500" }];
     if (closedIso < dueIso) {
@@ -151,62 +153,51 @@ interface EffectiveRange {
 }
 
 /**
- * A parent issue's Gantt bar is rolled up from its descendants (min start,
- * max due), recursively - not its own start_date/due_date. Falls back to
- * the issue's own dates only when it has no dated descendants (leaf issues,
- * or parents whose subtree is entirely unscheduled).
+ * A Task's Gantt bar rolls up its direct Subtask dates. The domain allows
+ * exactly one hierarchy level, so recursive traversal is intentionally absent.
  */
-function buildEffectiveRanges(issues: IssueResponse[]): Map<string, EffectiveRange> {
-  const childrenByParent = new Map<string, IssueResponse[]>();
-  for (const issue of issues) {
-    if (issue.parent_issue_id) {
-      const siblings = childrenByParent.get(issue.parent_issue_id) ?? [];
-      siblings.push(issue);
-      childrenByParent.set(issue.parent_issue_id, siblings);
+function buildEffectiveRanges(tasks: TaskResponse[]): Map<string, EffectiveRange> {
+  const childrenByParent = new Map<string, TaskResponse[]>();
+  for (const task of tasks) {
+    if (task.parent_task_id) {
+      const siblings = childrenByParent.get(task.parent_task_id) ?? [];
+      siblings.push(task);
+      childrenByParent.set(task.parent_task_id, siblings);
     }
   }
 
   const cache = new Map<string, EffectiveRange>();
-  const visiting = new Set<string>();
-
-  function resolve(issue: IssueResponse): EffectiveRange {
-    const cached = cache.get(issue.id);
+  function resolve(task: TaskResponse): EffectiveRange {
+    const cached = cache.get(task.id);
     if (cached) return cached;
-    if (visiting.has(issue.id)) {
-      return { start: issue.start_date, due: issue.due_date, isRollup: false };
-    }
-    visiting.add(issue.id);
-
     let start: string | null = null;
     let due: string | null = null;
-    for (const child of childrenByParent.get(issue.id) ?? []) {
-      const childRange = resolve(child);
-      if (childRange.start && (!start || childRange.start < start)) start = childRange.start;
-      if (childRange.due && (!due || childRange.due > due)) due = childRange.due;
+    for (const child of childrenByParent.get(task.id) ?? []) {
+      if (child.start_date && (!start || child.start_date < start)) start = child.start_date;
+      if (child.due_date && (!due || child.due_date > due)) due = child.due_date;
     }
 
     const result: EffectiveRange =
       start !== null || due !== null
         ? { start, due, isRollup: true }
-        : { start: issue.start_date, due: issue.due_date, isRollup: false };
+        : { start: task.start_date, due: task.due_date, isRollup: false };
 
-    visiting.delete(issue.id);
-    cache.set(issue.id, result);
+    cache.set(task.id, result);
     return result;
   }
 
-  for (const issue of issues) resolve(issue);
+  for (const task of tasks) resolve(task);
   return cache;
 }
 
 interface ScheduleRow {
-  issue: IssueResponse;
+  task: TaskResponse;
   number: string;
   depth: number;
   hasChildren: boolean;
 }
 
-const PRIORITY_RANK: Record<IssuePriority, number> = { low: 1, medium: 2, high: 3, urgent: 4 };
+const PRIORITY_RANK: Record<TaskPriority, number> = { low: 1, medium: 2, high: 3, urgent: 4 };
 
 type ScheduleSortKey = "entry" | "priority" | "score";
 type ScheduleSortDirection = "asc" | "desc";
@@ -218,42 +209,42 @@ type ScheduleSortDirection = "asc" | "desc";
  * parent row, so "sort by priority" reorders who's 1.1 vs 1.2, not
  * whether a subtask can appear above its own parent.
  */
-function buildScheduleRows(
-  issues: IssueResponse[],
+export function buildScheduleRows(
+  tasks: TaskResponse[],
   collapsed: Set<string>,
   sortKey: ScheduleSortKey,
   sortDirection: ScheduleSortDirection,
 ): ScheduleRow[] {
-  const byId = new Map(issues.map((issue) => [issue.id, issue]));
-  const childrenById = new Map<string, IssueResponse[]>();
-  const roots: IssueResponse[] = [];
-  for (const issue of issues) {
-    if (issue.parent_issue_id && byId.has(issue.parent_issue_id)) {
-      const siblings = childrenById.get(issue.parent_issue_id) ?? [];
-      siblings.push(issue);
-      childrenById.set(issue.parent_issue_id, siblings);
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const childrenById = new Map<string, TaskResponse[]>();
+  const roots: TaskResponse[] = [];
+  for (const task of tasks) {
+    if (task.parent_task_id && byId.has(task.parent_task_id)) {
+      const siblings = childrenById.get(task.parent_task_id) ?? [];
+      siblings.push(task);
+      childrenById.set(task.parent_task_id, siblings);
     } else {
-      roots.push(issue);
+      roots.push(task);
     }
   }
 
   const dir = sortDirection === "asc" ? 1 : -1;
   // Root entry order follows created_at; sibling entry order follows
-  // parent_assigned_at instead - when the issue most recently became a
+  // parent_assigned_at instead - when the task most recently became a
   // child of THIS parent, not when it was originally created - so
   // unlinking a child and re-linking it later moves it to the end of its
   // new siblings rather than pinning it to its original creation time.
-  const entryKey = (issue: IssueResponse, isRoot: boolean) =>
-    isRoot ? issue.created_at : (issue.parent_assigned_at ?? issue.created_at);
-  const byEntry = (isRoot: boolean) => (a: IssueResponse, b: IssueResponse) =>
+  const entryKey = (task: TaskResponse, isRoot: boolean) =>
+    isRoot ? task.created_at : (task.parent_assigned_at ?? task.created_at);
+  const byEntry = (isRoot: boolean) => (a: TaskResponse, b: TaskResponse) =>
     dir * entryKey(a, isRoot).localeCompare(entryKey(b, isRoot));
-  const byPriority = (isRoot: boolean) => (a: IssueResponse, b: IssueResponse) => {
+  const byPriority = (isRoot: boolean) => (a: TaskResponse, b: TaskResponse) => {
     const diff = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
     return diff !== 0 ? dir * diff : entryKey(a, isRoot).localeCompare(entryKey(b, isRoot));
   };
-  // Issues with no score (done, or no due_date) always sort last,
+  // Tasks with no score (done, or no due_date) always sort last,
   // regardless of direction - there's nothing to rank them by.
-  const byScore = (isRoot: boolean) => (a: IssueResponse, b: IssueResponse) => {
+  const byScore = (isRoot: boolean) => (a: TaskResponse, b: TaskResponse) => {
     const scoreA = a.priority_score;
     const scoreB = b.priority_score;
     if (scoreA === null && scoreB === null) {
@@ -274,75 +265,68 @@ function buildScheduleRows(
   for (const siblings of childrenById.values()) siblings.sort(comparator(false));
 
   const rows: ScheduleRow[] = [];
-  function visit(issue: IssueResponse, number: string, depth: number) {
-    const children = childrenById.get(issue.id) ?? [];
-    rows.push({ issue, number, depth, hasChildren: children.length > 0 });
-    if (collapsed.has(issue.id)) return;
-    children.forEach((child, i) => visit(child, `${number}.${i + 1}`, depth + 1));
+  function visit(task: TaskResponse, number: string) {
+    const children = childrenById.get(task.id) ?? [];
+    rows.push({ task, number, depth: 0, hasChildren: children.length > 0 });
+    if (collapsed.has(task.id)) return;
+    children.forEach((child, i) => rows.push({ task: child, number: `${number}.${i + 1}`, depth: 1, hasChildren: false }));
   }
-  roots.forEach((issue, i) => visit(issue, `${i + 1}`, 0));
+  roots.forEach((task, i) => visit(task, `${i + 1}`));
   return rows;
-}
-
-function isDescendantOrSelf(ancestorId: string, candidateId: string, issues: IssueResponse[]): boolean {
-  if (ancestorId === candidateId) return true;
-  return issues
-    .filter((issue) => issue.parent_issue_id === ancestorId)
-    .some((child) => isDescendantOrSelf(child.id, candidateId, issues));
 }
 
 interface ScheduleFilters {
   activity: string;
   responsible: string;
-  status: Set<IssueStatus>;
-  priority: IssuePriority | "";
+  status: Set<TaskStatus>;
+  priority: TaskPriority | "";
   dueToday: boolean;
 }
 
 const UNASSIGNED_FILTER_VALUE = "__unassigned__";
 
-function matchesFilters(issue: IssueResponse, filters: ScheduleFilters, todayIso: string): boolean {
-  if (filters.activity.trim() && !issue.title.toLowerCase().includes(filters.activity.trim().toLowerCase())) {
+function matchesFilters(task: TaskResponse, filters: ScheduleFilters, todayIso: string): boolean {
+  if (filters.activity.trim() && !task.title.toLowerCase().includes(filters.activity.trim().toLowerCase())) {
     return false;
   }
   if (filters.responsible) {
     if (filters.responsible === UNASSIGNED_FILTER_VALUE) {
-      if (issue.assignee_id !== null) return false;
-    } else if (issue.assignee_id !== filters.responsible) {
+      if (task.assignee_id !== null) return false;
+    } else if (task.assignee_id !== filters.responsible) {
       return false;
     }
   }
-  if (filters.status.size > 0 && !filters.status.has(issue.status)) return false;
-  if (filters.priority && issue.priority !== filters.priority) return false;
+  if (filters.status.size > 0 && !filters.status.has(task.status)) return false;
+  if (filters.priority && task.priority !== filters.priority) return false;
   if (filters.dueToday) {
     // "Should theoretically be worked on today", regardless of priority:
     // not done, has a due date, and hasn't been scheduled to start in the
     // future. Includes overdue items - those need today's attention most.
     const isActiveToday =
-      issue.status !== "done" &&
-      issue.due_date !== null &&
-      (issue.start_date === null || issue.start_date <= todayIso);
+      task.status !== "done" &&
+      task.due_date !== null &&
+      (task.start_date === null || task.start_date <= todayIso);
     if (!isActiveToday) return false;
   }
   return true;
 }
 
-// A filtered-in issue keeps its whole ancestor chain visible too, so the
+// A filtered-in task keeps its whole ancestor chain visible too, so the
 // tree structure/numbering stays intelligible instead of showing orphaned
 // deeply-indented rows with no parent above them.
 function computeFilterKeepSet(
-  issues: IssueResponse[],
+  tasks: TaskResponse[],
   filters: ScheduleFilters,
   todayIso: string,
 ): Set<string> {
-  const byId = new Map(issues.map((issue) => [issue.id, issue]));
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const keep = new Set<string>();
-  for (const issue of issues) {
-    if (!matchesFilters(issue, filters, todayIso)) continue;
-    let current: IssueResponse | undefined = issue;
+  for (const task of tasks) {
+    if (!matchesFilters(task, filters, todayIso)) continue;
+    let current: TaskResponse | undefined = task;
     while (current && !keep.has(current.id)) {
       keep.add(current.id);
-      current = current.parent_issue_id ? byId.get(current.parent_issue_id) : undefined;
+      current = current.parent_task_id ? byId.get(current.parent_task_id) : undefined;
     }
   }
   return keep;
@@ -352,13 +336,13 @@ function StatusFilterDropdown({
   selected,
   onChange,
 }: {
-  selected: Set<IssueStatus>;
-  onChange: (next: Set<IssueStatus>) => void;
+  selected: Set<TaskStatus>;
+  onChange: (next: Set<TaskStatus>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const label = selected.size === 0 ? "All" : `${selected.size} selected`;
 
-  function toggle(status: IssueStatus) {
+  function toggle(status: TaskStatus) {
     const next = new Set(selected);
     if (next.has(status)) next.delete(status);
     else next.add(status);
@@ -409,12 +393,12 @@ function StatusFilterDropdown({
   );
 }
 
-type IssueFieldPatch = Partial<{
+type TaskFieldPatch = Partial<{
   title: string;
   start_date: string | null;
   due_date: string | null;
   assignee_id: string | null;
-  priority: IssuePriority;
+  priority: TaskPriority;
 }>;
 
 // Info (activity/responsible/dates/status/priority/score) and Gantt (day
@@ -444,18 +428,18 @@ function ScheduleActivityInfoRow({
   isCollapsed: boolean;
   columnsCollapsed: boolean;
   isHighlighted: boolean;
-  onToggleCollapse: (issueId: string) => void;
-  onFieldChange: (issueId: string, patch: IssueFieldPatch) => void;
-  onStatusChange: (issueId: string, status: IssueStatus) => void;
-  onUnparent: (issueId: string) => void;
-  onHoverChange: (issueId: string | null) => void;
+  onToggleCollapse: (taskId: string) => void;
+  onFieldChange: (taskId: string, patch: TaskFieldPatch) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onUnparent: (taskId: string) => void;
+  onHoverChange: (taskId: string | null) => void;
   infoCellStyle: (colIndex: number, rowIndex: number) => CSSProperties;
 }) {
-  const { issue } = row;
+  const { task } = row;
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
-    id: issue.id,
+    id: task.id,
   });
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: issue.id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: task.id });
   // A hovered activity's row (and its date range in the header - see
   // hoveredRange in SchedulePage) gets a lighter background so it's obvious
   // which row a highlighted date range belongs to.
@@ -473,9 +457,9 @@ function ScheduleActivityInfoRow({
         {...listeners}
         {...attributes}
         onClick={() => {
-          if (row.hasChildren) onToggleCollapse(issue.id);
+          if (row.hasChildren) onToggleCollapse(task.id);
         }}
-        onMouseEnter={() => onHoverChange(issue.id)}
+        onMouseEnter={() => onHoverChange(task.id)}
         onMouseLeave={() => onHoverChange(null)}
         title={
           row.hasChildren
@@ -493,21 +477,21 @@ function ScheduleActivityInfoRow({
         <span className="truncate">{row.number}</span>
       </div>
       <div
-        onMouseEnter={() => onHoverChange(issue.id)}
+        onMouseEnter={() => onHoverChange(task.id)}
         onMouseLeave={() => onHoverChange(null)}
         className={`flex items-center gap-1 truncate border-b border-r border-ink-800 px-1 text-slate-200 ${rowBg}`}
         style={{ ...infoCellStyle(1, rowIndex), paddingLeft: 4 + row.depth * 14 }}
       >
         <Link
-          to={`/projects/${projectId}/issues/${issue.id}`}
-          title={issue.title}
+          to={`/projects/${projectId}/tasks/${task.id}`}
+          title={task.title}
           className="truncate text-slate-200 hover:text-ember-400 hover:underline"
         >
-          {issue.title}
+          {task.title}
         </Link>
-        {issue.parent_issue_id && (
+        {task.parent_task_id && (
           <button
-            onClick={() => onUnparent(issue.id)}
+            onClick={() => onUnparent(task.id)}
             title="Remove from parent"
             className="shrink-0 text-slate-600 hover:text-red-400"
           >
@@ -518,8 +502,8 @@ function ScheduleActivityInfoRow({
       {!columnsCollapsed && (
         <>
           <select
-            value={issue.assignee_id ?? ""}
-            onChange={(e) => onFieldChange(issue.id, { assignee_id: e.target.value || null })}
+            value={task.assignee_id ?? ""}
+            onChange={(e) => onFieldChange(task.id, { assignee_id: e.target.value || null })}
             className={`h-full w-full truncate border-b border-r border-ink-800 px-1 text-slate-400 outline-none ${rowBg}`}
             style={infoCellStyle(2, rowIndex)}
           >
@@ -532,21 +516,21 @@ function ScheduleActivityInfoRow({
           </select>
           <input
             type="date"
-            value={issue.start_date ?? ""}
-            onChange={(e) => onFieldChange(issue.id, { start_date: e.target.value || null })}
+            value={task.start_date ?? ""}
+            onChange={(e) => onFieldChange(task.id, { start_date: e.target.value || null })}
             className={`h-full w-full border-b border-r border-ink-800 px-1 text-slate-400 outline-none ${rowBg}`}
             style={infoCellStyle(3, rowIndex)}
           />
           <input
             type="date"
-            value={issue.due_date ?? ""}
-            onChange={(e) => onFieldChange(issue.id, { due_date: e.target.value || null })}
+            value={task.due_date ?? ""}
+            onChange={(e) => onFieldChange(task.id, { due_date: e.target.value || null })}
             className={`h-full w-full border-b border-r border-ink-800 px-1 text-slate-400 outline-none ${rowBg}`}
             style={infoCellStyle(4, rowIndex)}
           />
           <select
-            value={issue.status}
-            onChange={(e) => onStatusChange(issue.id, e.target.value as IssueStatus)}
+            value={task.status}
+            onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
             className={`h-full w-full border-b border-r border-ink-800 px-1 text-[10px] uppercase text-slate-400 outline-none ${rowBg}`}
             style={infoCellStyle(5, rowIndex)}
           >
@@ -561,11 +545,11 @@ function ScheduleActivityInfoRow({
             style={infoCellStyle(6, rowIndex)}
           >
             <select
-              value={issue.priority}
+              value={task.priority}
               onChange={(e) =>
-                onFieldChange(issue.id, { priority: e.target.value as IssuePriority })
+                onFieldChange(task.id, { priority: e.target.value as TaskPriority })
               }
-              className={`cursor-pointer appearance-none rounded-full border-none px-2 py-0.5 text-xs font-medium outline-none ${PRIORITY_COLORS[issue.priority]}`}
+              className={`cursor-pointer appearance-none rounded-full border-none px-2 py-0.5 text-xs font-medium outline-none ${PRIORITY_COLORS[task.priority]}`}
             >
               {PRIORITY_OPTIONS.map((priority) => (
                 <option key={priority} value={priority} className="bg-ink-900 text-slate-200">
@@ -578,7 +562,7 @@ function ScheduleActivityInfoRow({
             className={`flex items-center border-b border-r border-ink-800 px-2 ${rowBg}`}
             style={infoCellStyle(7, rowIndex)}
           >
-            {issue.priority_score !== null && <PriorityScoreChip score={issue.priority_score} />}
+            {task.priority_score !== null && <PriorityScoreChip score={task.priority_score} />}
           </div>
         </>
       )}
@@ -587,7 +571,7 @@ function ScheduleActivityInfoRow({
 }
 
 function ScheduleActivityGanttRow({
-  issue,
+  task,
   rowIndex,
   range,
   segments,
@@ -595,13 +579,13 @@ function ScheduleActivityGanttRow({
   isHighlighted,
   onHoverChange,
 }: {
-  issue: IssueResponse;
+  task: TaskResponse;
   rowIndex: number;
   range: EffectiveRange;
   segments: BarSegment[];
   dayIndex: Map<string, number>;
   isHighlighted: boolean;
-  onHoverChange: (issueId: string | null) => void;
+  onHoverChange: (taskId: string | null) => void;
 }) {
   return (
     <Fragment>
@@ -610,8 +594,8 @@ function ScheduleActivityGanttRow({
         const endCol = (dayIndex.get(segment.endIso) ?? dayIndex.get(segment.startIso) ?? 0) + 1;
         return (
           <div
-            key={`bar-${issue.id}-${segIndex}`}
-            onMouseEnter={() => onHoverChange(issue.id)}
+            key={`bar-${task.id}-${segIndex}`}
+            onMouseEnter={() => onHoverChange(task.id)}
             onMouseLeave={() => onHoverChange(null)}
             className={`flex items-center border-b border-ink-800 px-0.5 ${
               isHighlighted ? "bg-ink-800" : ""
@@ -621,8 +605,8 @@ function ScheduleActivityGanttRow({
             <div
               title={
                 range.isRollup
-                  ? `${issue.title} — rollup of subtasks: ${range.start} → ${range.due}`
-                  : `${issue.title} — Planned: ${issue.days_planned ?? "—"}d, Taken: ${issue.days_taken ?? "—"}d`
+                  ? `${task.title} — rollup of subtasks: ${range.start} → ${range.due}`
+                  : `${task.title} — Planned: ${task.days_planned ?? "—"}d, Taken: ${task.days_taken ?? "—"}d`
               }
               className={`w-full rounded ${segment.color} ${range.isRollup ? "h-2" : "h-4"} ${
                 isHighlighted ? "ring-2 ring-slate-100" : ""
@@ -640,19 +624,19 @@ export default function SchedulePage() {
   const { token } = useAuth();
 
   const [project, setProject] = useState<ProjectResponse | null>(null);
-  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activityFilter, setActivityFilter] = useState("");
   const [responsibleFilter, setResponsibleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Set<IssueStatus>>(new Set());
-  const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "">("");
+  const [statusFilter, setStatusFilter] = useState<Set<TaskStatus>>(new Set());
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "">("");
   const [dueTodayFilter, setDueTodayFilter] = useState(false);
   const [sortKey, setSortKey] = useState<ScheduleSortKey>("entry");
   const [sortDirection, setSortDirection] = useState<ScheduleSortDirection>("asc");
   const [isExporting, setIsExporting] = useState(false);
   const [columnsCollapsed, setColumnsCollapsed] = useState(false);
-  const [hoveredIssueId, setHoveredIssueId] = useState<string | null>(null);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
 
   // The Gantt pane is the only one with a visible scrollbar (vertical *and*
   // horizontal) - the info pane's own vertical scroll is hidden
@@ -683,15 +667,15 @@ export default function SchedulePage() {
       setSortDirection("asc");
     }
   }
-  const [pendingStatus, setPendingStatus] = useState<{ issueId: string; status: IssueStatus } | null>(
+  const [pendingStatus, setPendingStatus] = useState<{ taskId: string; status: TaskStatus } | null>(
     null,
   );
-  const [showNewIssueForm, setShowNewIssueForm] = useState(false);
-  const [newIssueTitle, setNewIssueTitle] = useState("");
-  const [newIssueParentId, setNewIssueParentId] = useState("");
-  const [newIssueAssigneeId, setNewIssueAssigneeId] = useState("");
-  const [newIssueStart, setNewIssueStart] = useState("");
-  const [newIssueDue, setNewIssueDue] = useState("");
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskParentId, setNewTaskParentId] = useState("");
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
+  const [newTaskStart, setNewTaskStart] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // A distance threshold so a plain click on the drag handle (used to
@@ -706,49 +690,46 @@ export default function SchedulePage() {
   async function loadAll() {
     if (!token || !projectId) return;
     try {
-      const [projectData, issueData, memberData] = await Promise.all([
+      const [projectData, taskData, memberData] = await Promise.all([
         getProject(token, projectId),
-        listProjectIssues(token, projectId),
+        listProjectTasks(token, projectId, { include_subtasks: true }),
         listProjectMembers(token, projectId),
       ]);
       setProject(projectData);
-      setIssues(issueData);
+      setTasks(taskData);
       setMembers(memberData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load schedule");
     }
   }
 
-  function toggleCollapse(issueId: string) {
+  function toggleCollapse(taskId: string) {
     setCollapsed((current) => {
       const next = new Set(current);
-      if (next.has(issueId)) next.delete(issueId);
-      else next.add(issueId);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
       return next;
     });
   }
 
-  async function handleFieldChange(issueId: string, patch: IssueFieldPatch) {
+  async function handleFieldChange(taskId: string, patch: TaskFieldPatch) {
     if (!token) return;
-    const issue = issues.find((i) => i.id === issueId);
-    if (!issue) return;
-    const previous = issues;
-    setIssues((current) => current.map((i) => (i.id === issueId ? { ...i, ...patch } : i)));
+    const task = tasks.find((i) => i.id === taskId);
+    if (!task) return;
+    const previous = tasks;
+    setTasks((current) => current.map((i) => (i.id === taskId ? { ...i, ...patch } : i)));
     try {
-      const updated = await updateIssue(token, issueId, {
-        title: patch.title ?? issue.title,
-        description: issue.description,
-        issue_type: issue.issue_type,
-        priority: patch.priority ?? issue.priority,
-        assignee_id: "assignee_id" in patch ? (patch.assignee_id ?? null) : issue.assignee_id,
-        parent_issue_id: issue.parent_issue_id,
-        start_date: "start_date" in patch ? (patch.start_date ?? null) : issue.start_date,
-        due_date: "due_date" in patch ? (patch.due_date ?? null) : issue.due_date,
+      const updated = await updateTask(token, taskId, {
+        title: patch.title ?? task.title,
+        priority: patch.priority ?? task.priority,
+        assignee_id: "assignee_id" in patch ? (patch.assignee_id ?? null) : task.assignee_id,
+        start_date: "start_date" in patch ? (patch.start_date ?? null) : task.start_date,
+        due_date: "due_date" in patch ? (patch.due_date ?? null) : task.due_date,
       });
-      setIssues((current) => current.map((i) => (i.id === issueId ? updated : i)));
+      setTasks((current) => current.map((i) => (i.id === taskId ? updated : i)));
     } catch (err) {
-      setIssues(previous);
-      setError(err instanceof Error ? err.message : "Failed to update issue");
+      setTasks(previous);
+      setError(err instanceof Error ? err.message : "Failed to update task");
     }
   }
 
@@ -764,95 +745,94 @@ export default function SchedulePage() {
     }
   }
 
-  async function applyStatusChange(issueId: string, status: IssueStatus) {
+  async function applyStatusChange(taskId: string, status: TaskStatus) {
     if (!token) return;
-    const previous = issues;
-    setIssues((current) => current.map((i) => (i.id === issueId ? { ...i, status } : i)));
+    const previous = tasks;
+    setTasks((current) => current.map((i) => (i.id === taskId ? { ...i, status } : i)));
     try {
-      const updated = await updateIssueStatus(token, issueId, status);
-      setIssues((current) => current.map((i) => (i.id === issueId ? updated : i)));
+      const updated = await updateTaskStatus(token, taskId, status);
+      setTasks((current) => current.map((i) => (i.id === taskId ? updated : i)));
     } catch (err) {
-      setIssues(previous);
+      setTasks(previous);
       setError(err instanceof Error ? err.message : "Failed to update status");
     }
   }
 
-  function handleStatusChange(issueId: string, status: IssueStatus) {
+  function handleStatusChange(taskId: string, status: TaskStatus) {
     if (status === "done") {
-      setPendingStatus({ issueId, status });
+      setPendingStatus({ taskId, status });
       return;
     }
-    void applyStatusChange(issueId, status);
+    void applyStatusChange(taskId, status);
   }
 
-  async function handleReparent(issueId: string, parentIssueId: string | null) {
+  async function handleReparent(taskId: string, parentTaskId: string | null) {
     if (!token) return;
-    const issue = issues.find((i) => i.id === issueId);
-    if (!issue) return;
-    const previous = issues;
-    setIssues((current) =>
-      current.map((i) => (i.id === issueId ? { ...i, parent_issue_id: parentIssueId } : i)),
+    const task = tasks.find((i) => i.id === taskId);
+    if (!task) return;
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((i) => (i.id === taskId ? { ...i, parent_task_id: parentTaskId } : i)),
     );
     try {
-      const updated = await updateIssue(token, issueId, {
-        title: issue.title,
-        description: issue.description,
-        issue_type: issue.issue_type,
-        priority: issue.priority,
-        assignee_id: issue.assignee_id,
-        parent_issue_id: parentIssueId,
-        start_date: issue.start_date,
-        due_date: issue.due_date,
-      });
-      setIssues((current) => current.map((i) => (i.id === issueId ? updated : i)));
+      const updated = await updateTaskParent(token, taskId, parentTaskId);
+      setTasks((current) => current.map((i) => (i.id === taskId ? updated : i)));
     } catch (err) {
-      setIssues(previous);
-      setError(err instanceof Error ? err.message : "Failed to reparent issue");
+      setTasks(previous);
+      setError(err instanceof Error ? err.message : "Failed to reparent task");
     }
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
-    const issueId = String(active.id);
-    const parentIssueId = String(over.id);
-    if (issueId === parentIssueId) return;
-    if (isDescendantOrSelf(issueId, parentIssueId, issues)) {
-      setError("Can't make an activity a subtask of its own descendant.");
+    const taskId = String(active.id);
+    const parentTaskId = String(over.id);
+    if (taskId === parentTaskId) return;
+    const task = tasks.find((item) => item.id === taskId);
+    const parent = tasks.find((item) => item.id === parentTaskId);
+    if (!task || !parent) return;
+    if (parent.parent_task_id !== null) {
+      setError("A Subtask cannot be used as a parent.");
       return;
     }
-    const issue = issues.find((i) => i.id === issueId);
-    if (issue && issue.parent_issue_id === parentIssueId) return;
-    void handleReparent(issueId, parentIssueId);
+    if (task.parent_task_id === parentTaskId) return;
+    if (task.parent_task_id === null && tasks.some((child) => child.parent_task_id === task.id)) {
+      setError("Move or promote this Task's Subtasks before assigning it to another Task.");
+      return;
+    }
+    void handleReparent(taskId, parentTaskId);
   }
 
-  async function handleCreateIssue() {
-    if (!token || !projectId || !newIssueTitle.trim()) return;
+  async function handleCreateTask() {
+    if (!token || !projectId || !newTaskTitle.trim()) return;
     try {
-      const created = await createIssue(token, projectId, {
-        title: newIssueTitle.trim(),
-        parent_issue_id: newIssueParentId || null,
-        assignee_id: newIssueAssigneeId || null,
-        start_date: newIssueStart || null,
-        due_date: newIssueDue || null,
-      });
-      setIssues((current) => [...current, created]);
-      setNewIssueTitle("");
-      setNewIssueParentId("");
-      setNewIssueAssigneeId("");
-      setNewIssueStart("");
-      setNewIssueDue("");
-      setShowNewIssueForm(false);
+      const fields = {
+        title: newTaskTitle.trim(),
+        assignee_id: newTaskAssigneeId || null,
+        start_date: newTaskStart || null,
+        due_date: newTaskDue || null,
+      };
+      const created = newTaskParentId
+        ? await createSubtask(token, newTaskParentId, fields)
+        : await createTask(token, projectId, fields);
+      setTasks((current) => [...current, created]);
+      setNewTaskTitle("");
+      setNewTaskParentId("");
+      setNewTaskAssigneeId("");
+      setNewTaskStart("");
+      setNewTaskDue("");
+      setShowNewTaskForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create activity");
     }
   }
 
-  const effectiveRanges = useMemo(() => buildEffectiveRanges(issues), [issues]);
+  const effectiveRanges = useMemo(() => buildEffectiveRanges(tasks), [tasks]);
 
-  const datedIssues = useMemo(
-    () => issues.filter((issue) => effectiveRanges.get(issue.id)?.due != null),
-    [issues, effectiveRanges],
+  const datedTasks = useMemo(
+    () => tasks.filter((task) => effectiveRanges.get(task.id)?.due != null),
+    [tasks, effectiveRanges],
   );
 
   const todayIso = isoDate(new Date());
@@ -876,16 +856,16 @@ export default function SchedulePage() {
     // collapsed ancestor would be invisible with no way to reveal it), and
     // restores the normal collapsed view once every filter is cleared.
     const rows = buildScheduleRows(
-      issues,
+      tasks,
       hasActiveFilter ? new Set() : collapsed,
       sortKey,
       sortDirection,
     );
     if (!hasActiveFilter) return rows;
-    const keep = computeFilterKeepSet(issues, filters, todayIso);
-    return rows.filter((row) => keep.has(row.issue.id));
+    const keep = computeFilterKeepSet(tasks, filters, todayIso);
+    return rows.filter((row) => keep.has(row.task.id));
   }, [
-    issues,
+    tasks,
     collapsed,
     hasActiveFilter,
     todayIso,
@@ -901,11 +881,11 @@ export default function SchedulePage() {
   const { days, weeks, months } = useMemo(() => {
     const today = new Date();
     const dates: Date[] = [today];
-    for (const issue of datedIssues) {
-      const range = effectiveRanges.get(issue.id);
+    for (const task of datedTasks) {
+      const range = effectiveRanges.get(task.id);
       if (range?.start) dates.push(parseLocalDate(range.start));
       if (range?.due) dates.push(parseLocalDate(range.due));
-      if (issue.closed_at_date) dates.push(parseLocalDate(issue.closed_at_date));
+      if (task.closed_at_date) dates.push(parseLocalDate(task.closed_at_date));
     }
 
     const minDate = startOfWeek(new Date(Math.min(...dates.map((d) => d.getTime()))));
@@ -939,7 +919,7 @@ export default function SchedulePage() {
     }
 
     return { days: dayList, weeks: weekGroups, months: monthGroups };
-  }, [datedIssues, effectiveRanges]);
+  }, [datedTasks, effectiveRanges]);
 
   const dayIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -960,14 +940,14 @@ export default function SchedulePage() {
     : STICKY_COLUMNS;
   const infoGridTemplateColumns = visibleStickyColumns.map((col) => `${col.width}px`).join(" ");
   const ganttGridTemplateColumns = days.map(() => `${DAY_WIDTH}px`).join(" ");
-  const pendingIssue = pendingStatus ? issues.find((i) => i.id === pendingStatus.issueId) : null;
+  const pendingTask = pendingStatus ? tasks.find((i) => i.id === pendingStatus.taskId) : null;
 
   // The activity currently hovered (from either its info row or its Gantt
   // bar - see onHoverChange below) - drives the header/row highlight the
   // user asked for. `range` reuses the same rollup-aware start/due
   // SchedulePage already computes for the bar itself, so a parent's
   // highlighted span matches its rolled-up bar exactly.
-  const hoveredRange = hoveredIssueId ? effectiveRanges.get(hoveredIssueId) : null;
+  const hoveredRange = hoveredTaskId ? effectiveRanges.get(hoveredTaskId) : null;
 
   // Horizontal position never needs `position: sticky` - the info columns
   // and the Gantt live in two separate grids side by side, each with its
@@ -1048,33 +1028,33 @@ export default function SchedulePage() {
             </button>
           </div>
 
-          {showNewIssueForm ? (
+          {showNewTaskForm ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <input
                 autoFocus
                 type="text"
                 placeholder="Activity title"
-                value={newIssueTitle}
-                onChange={(e) => setNewIssueTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateIssue()}
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateTask()}
                 className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-ember-500"
               />
               <select
-                value={newIssueParentId}
-                onChange={(e) => setNewIssueParentId(e.target.value)}
+                value={newTaskParentId}
+                onChange={(e) => setNewTaskParentId(e.target.value)}
                 aria-label="Parent task"
                 className="max-w-56 rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               >
                 <option value="">Top-level task</option>
-                {issues.map((issue) => (
-                  <option key={issue.id} value={issue.id}>
-                    {issue.title}
+                {tasks.filter((task) => task.parent_task_id === null).map((task) => (
+                  <option key={task.id} value={task.id}>
+                    {task.title}
                   </option>
                 ))}
               </select>
               <select
-                value={newIssueAssigneeId}
-                onChange={(e) => setNewIssueAssigneeId(e.target.value)}
+                value={newTaskAssigneeId}
+                onChange={(e) => setNewTaskAssigneeId(e.target.value)}
                 aria-label="Responsible person"
                 className="max-w-56 rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               >
@@ -1087,24 +1067,24 @@ export default function SchedulePage() {
               </select>
               <input
                 type="date"
-                value={newIssueStart}
-                onChange={(e) => setNewIssueStart(e.target.value)}
+                value={newTaskStart}
+                onChange={(e) => setNewTaskStart(e.target.value)}
                 className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               />
               <input
                 type="date"
-                value={newIssueDue}
-                onChange={(e) => setNewIssueDue(e.target.value)}
+                value={newTaskDue}
+                onChange={(e) => setNewTaskDue(e.target.value)}
                 className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               />
               <button
-                onClick={handleCreateIssue}
+                onClick={handleCreateTask}
                 className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ember-600"
               >
                 Create
               </button>
               <button
-                onClick={() => setShowNewIssueForm(false)}
+                onClick={() => setShowNewTaskForm(false)}
                 className="rounded-md border border-ink-700 px-3 py-1.5 text-sm text-slate-300"
               >
                 Cancel
@@ -1112,7 +1092,7 @@ export default function SchedulePage() {
             </div>
           ) : (
             <button
-              onClick={() => setShowNewIssueForm(true)}
+              onClick={() => setShowNewTaskForm(true)}
               className="flex items-center gap-1 rounded-md border border-dashed border-ink-700 px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:border-ink-600 hover:text-slate-300"
             >
               <PlusIcon className="h-3.5 w-3.5" />
@@ -1258,7 +1238,7 @@ export default function SchedulePage() {
                       {col.key === "priority" && (
                         <select
                           value={priorityFilter}
-                          onChange={(e) => setPriorityFilter(e.target.value as IssuePriority | "")}
+                          onChange={(e) => setPriorityFilter(e.target.value as TaskPriority | "")}
                           className="w-full rounded border border-ink-700 bg-ink-800 px-1 py-0.5 text-[11px] text-slate-300 outline-none focus:border-ember-500"
                         >
                           <option value="">All</option>
@@ -1272,22 +1252,22 @@ export default function SchedulePage() {
                     </div>
                   ))}
 
-                  {/* Issue rows */}
+                  {/* Task rows */}
                   {scheduleRows.map((row, rowOffset) => (
                     <ScheduleActivityInfoRow
-                      key={row.issue.id}
+                      key={row.task.id}
                       row={row}
                       rowIndex={HEADER_ROWS + 1 + rowOffset}
                       members={members}
                       projectId={project.id}
-                      isCollapsed={collapsed.has(row.issue.id)}
+                      isCollapsed={collapsed.has(row.task.id)}
                       columnsCollapsed={columnsCollapsed}
-                      isHighlighted={hoveredIssueId === row.issue.id}
+                      isHighlighted={hoveredTaskId === row.task.id}
                       onToggleCollapse={toggleCollapse}
                       onFieldChange={handleFieldChange}
                       onStatusChange={handleStatusChange}
-                      onUnparent={(issueId) => void handleReparent(issueId, null)}
-                      onHoverChange={setHoveredIssueId}
+                      onUnparent={(taskId) => void handleReparent(taskId, null)}
+                      onHoverChange={setHoveredTaskId}
                       infoCellStyle={infoCellStyle}
                     />
                   ))}
@@ -1391,25 +1371,25 @@ export default function SchedulePage() {
                     }}
                   />
 
-                  {/* Issue bars */}
+                  {/* Task bars */}
                   {scheduleRows.map((row, rowOffset) => {
-                    const range = effectiveRanges.get(row.issue.id)!;
+                    const range = effectiveRanges.get(row.task.id)!;
                     const segments: BarSegment[] = range.isRollup
                       ? range.start && range.due
                         ? [{ startIso: range.start, endIso: range.due, color: "bg-indigo-400" }]
                         : []
-                      : computeBarSegments(row.issue, todayIso);
+                      : computeBarSegments(row.task, todayIso);
 
                     return (
                       <ScheduleActivityGanttRow
-                        key={row.issue.id}
-                        issue={row.issue}
+                        key={row.task.id}
+                        task={row.task}
                         rowIndex={HEADER_ROWS + 1 + rowOffset}
                         range={range}
                         segments={segments}
                         dayIndex={dayIndex}
-                        isHighlighted={hoveredIssueId === row.issue.id}
-                        onHoverChange={setHoveredIssueId}
+                        isHighlighted={hoveredTaskId === row.task.id}
+                        onHoverChange={setHoveredTaskId}
                       />
                     );
                   })}
@@ -1424,7 +1404,7 @@ export default function SchedulePage() {
       {pendingStatus && (
         <Modal title="Close this activity?" onClose={() => setPendingStatus(null)}>
           <p className="text-sm text-slate-400">
-            Marking <span className="text-slate-200">{pendingIssue?.title ?? "this activity"}</span>{" "}
+            Marking <span className="text-slate-200">{pendingTask?.title ?? "this activity"}</span>{" "}
             as done will record the close date. This can be reopened later by changing its status
             again.
           </p>
@@ -1437,7 +1417,7 @@ export default function SchedulePage() {
             </button>
             <button
               onClick={() => {
-                void applyStatusChange(pendingStatus.issueId, pendingStatus.status);
+                void applyStatusChange(pendingStatus.taskId, pendingStatus.status);
                 setPendingStatus(null);
               }}
               className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ember-600"

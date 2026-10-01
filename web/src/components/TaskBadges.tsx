@@ -1,12 +1,12 @@
 import type {
-  IssuePriority,
-  IssueStatus,
+  TaskPriority,
+  TaskStatus,
   LabelResponse,
   ScheduleStatus,
   Urgency,
-} from "../api/client_issues";
+} from "../api/client_tasks";
 
-export const STATUS_LABELS: Record<IssueStatus, string> = {
+export const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: "Backlog",
   todo: "To Do",
   in_progress: "In Progress",
@@ -14,7 +14,7 @@ export const STATUS_LABELS: Record<IssueStatus, string> = {
   done: "Done",
 };
 
-const STATUS_COLORS: Record<IssueStatus, string> = {
+const STATUS_COLORS: Record<TaskStatus, string> = {
   backlog: "bg-slate-500/10 text-slate-400",
   todo: "bg-sky-500/10 text-sky-400",
   in_progress: "bg-amber-500/10 text-amber-400",
@@ -22,14 +22,14 @@ const STATUS_COLORS: Record<IssueStatus, string> = {
   done: "bg-emerald-500/10 text-emerald-400",
 };
 
-export const PRIORITY_COLORS: Record<IssuePriority, string> = {
+export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: "bg-slate-500/10 text-slate-400",
   medium: "bg-sky-500/10 text-sky-400",
   high: "bg-amber-500/10 text-amber-400",
   urgent: "bg-red-500/10 text-red-400",
 };
 
-export function StatusBadge({ status }: { status: IssueStatus }) {
+export function StatusBadge({ status }: { status: TaskStatus }) {
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}
@@ -39,7 +39,7 @@ export function StatusBadge({ status }: { status: IssueStatus }) {
   );
 }
 
-export function PriorityBadge({ priority }: { priority: IssuePriority }) {
+export function PriorityBadge({ priority }: { priority: TaskPriority }) {
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[priority]}`}>
       {priority}

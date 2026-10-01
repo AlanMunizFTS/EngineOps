@@ -108,11 +108,7 @@ class FileTreeNode:
     created_at: datetime
 
 
-class IssueStatus(StrEnum):
-    """Also the fixed vocabulary kanban_columns.maps_to_statuses draws from -
-    see docs/architecture/adr/0004-issue-hierarchy-linking.md and
-    docs/architecture/adr/0010-dynamic-kanban-boards.md."""
-
+class TaskStatus(StrEnum):
     BACKLOG = "backlog"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
@@ -120,14 +116,14 @@ class IssueStatus(StrEnum):
     DONE = "done"
 
 
-class IssuePriority(StrEnum):
+class TaskPriority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     URGENT = "urgent"
 
 
-class IssueType(StrEnum):
+class TaskType(StrEnum):
     BUG = "bug"
     TASK = "task"
     IMPROVEMENT = "improvement"
@@ -143,68 +139,90 @@ class Label:
 
 
 @dataclass(frozen=True, slots=True)
-class Issue:
-    """`start_date`/`due_date` are optional scheduling fields for the project
-    Schedule (Gantt) view - see
-    docs/architecture/adr/0009-project-schedule-priority-score.md. An issue
-    with no `start_date`/`due_date` simply doesn't appear on the Gantt grid;
-    everything else about it works unchanged. `days_planned` is computed from
-    them at read time (see domain/scheduling.py), never stored.
+class Milestone:
+    id: UUID
+    project_id: UUID
+    title: str
+    description: str | None
+    status: MilestoneStatus
+    due_date: date | None
+    created_at: datetime
+    updated_at: datetime
+    total_tasks: int = 0
+    completed_tasks: int = 0
 
-    `parent_issue_id` makes an issue a subtask of another issue in the same
-    project - see docs/architecture/adr/0011-issue-subtasks-and-history.md.
-    `stage` (a free-text Kanban-grouping field) was removed in the same ADR,
-    superseded by dynamic Kanban columns (ADR 0010).
+    @property
+    def progress_percentage(self) -> float:
+        return 0.0 if self.total_tasks == 0 else self.completed_tasks / self.total_tasks * 100
 
-    `parent_assigned_at` stamps when `parent_issue_id` last changed (set,
-    cleared, or re-pointed) - not when the issue itself was created. Sibling
-    ordering in the Schedule view sorts children by this instead of
-    `created_at`, so un-linking a child and re-linking it later moves it to
-    the end of its new siblings rather than pinning it to its original
-    creation time - see docs/architecture/adr/0014-parent-assigned-at.md."""
+
+class MilestoneStatus(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+@dataclass(frozen=True, slots=True)
+class Task:
+    """Executable work. ``parent_task_id`` is the sole hierarchy discriminator.
+
+    A null parent identifies a top-level Task; a non-null parent identifies a
+    direct Subtask. The application service prevents deeper nesting.
+    """
 
     id: UUID
     project_id: UUID
     title: str
     description: str | None
-    status: IssueStatus
-    priority: IssuePriority
-    issue_type: IssueType
+    status: TaskStatus
+    priority: TaskPriority
+    task_type: TaskType
     assignee_id: UUID | None
     created_by: UUID | None
     created_at: datetime
+    updated_at: datetime
     closed_at: datetime | None
-    parent_issue_id: UUID | None = None
+    milestone_id: UUID | None = None
+    parent_task_id: UUID | None = None
     parent_assigned_at: datetime | None = None
     start_date: date | None = None
     due_date: date | None = None
     labels: list[Label] = field(default_factory=list)
+    subtasks_total: int = 0
+    subtasks_completed: int = 0
+
+    @property
+    def is_subtask(self) -> bool:
+        return self.parent_task_id is not None
+
+    @property
+    def is_top_level(self) -> bool:
+        return self.parent_task_id is None
 
 
 @dataclass(frozen=True, slots=True)
-class IssueComment:
+class TaskComment:
     id: UUID
-    issue_id: UUID
+    task_id: UUID
     author_id: UUID | None
     body: str
     created_at: datetime
-    edited_at: datetime | None
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
 class KanbanColumn:
-    """`maps_to_statuses` drives card membership - a column shows every issue
+    """`maps_to_statuses` drives card membership - a column shows every task
     whose `status` is in this list. Empty means the column never shows any
     card (allowed, e.g. as a placeholder while setting up a new board). A
     column mapping to more than one status aggregates them into one visual
-    lane; dragging a card into it sets the issue's status to the first entry
+    lane; dragging a card into it sets the task's status to the first entry
     - see docs/architecture/adr/0010-dynamic-kanban-boards.md."""
 
     id: UUID
     board_id: UUID
     name: str
     order_index: int
-    maps_to_statuses: list[IssueStatus] = field(default_factory=list)
+    maps_to_statuses: list[TaskStatus] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

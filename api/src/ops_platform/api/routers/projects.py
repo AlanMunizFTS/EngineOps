@@ -169,7 +169,7 @@ async def delete_project(
         )
 
     # All project-scoped foreign keys use ON DELETE CASCADE, so this removes
-    # issues, boards, materials, files, memberships, and audit history atomically.
+    # tasks, boards, materials, files, memberships, and audit history atomically.
     await project_repo.delete(project_id)
     await session.commit()
 
