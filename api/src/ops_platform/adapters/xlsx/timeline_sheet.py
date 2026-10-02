@@ -170,7 +170,7 @@ def _write_info_cells(
         if task.start_date is not None
         else None
     )
-    assignee = member_names.get(task.assignee_id, "") if task.assignee_id else ""
+    assignee = ", ".join(member_names.get(user_id, "") for user_id in task.assignee_ids)
     indent = "    " * row.depth
     values = [
         number,

@@ -247,7 +247,7 @@ function KanbanColumnView({
       <div className="min-h-16 flex-1 space-y-3">
         {tasks.sort(compareCards).map((task) => <KanbanCard
           key={task.id} task={task} projectId={projectId}
-          assigneeName={task.assignee_id ? (assigneeNameById.get(task.assignee_id) ?? null) : null}
+          assigneeName={task.assignee_ids.length ? task.assignee_ids.map((id) => assigneeNameById.get(id) ?? "Unknown").join(", ") : null}
           members={members} onUpdateTask={onUpdateTask}
           milestoneName={task.milestone_id ? milestoneNameById.get(task.milestone_id) ?? null : null}
         />)}

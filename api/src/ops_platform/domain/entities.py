@@ -187,6 +187,7 @@ class Task:
     start_date: date | None = None
     due_date: date | None = None
     labels: list[Label] = field(default_factory=list)
+    assignee_ids: list[UUID] = field(default_factory=list)
     subtasks_total: int = 0
     subtasks_completed: int = 0
 

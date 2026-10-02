@@ -22,4 +22,25 @@ describe("authenticated API requests", () => {
     );
     expect(onExpired).toHaveBeenCalledOnce();
   });
+
+  it("formats FastAPI validation details as a readable field error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail: [
+            {
+              type: "string_too_short",
+              loc: ["body", "password"],
+              msg: "String should have at least 8 characters",
+            },
+          ],
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(authFetch("token", "/admin/users", { method: "POST" })).rejects.toThrow(
+      "password: String should have at least 8 characters",
+    );
+  });
 });

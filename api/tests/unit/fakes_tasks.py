@@ -88,12 +88,16 @@ class FakeTaskRepository(TaskRepository):
         priority: TaskPriority,
         created_by: UUID | None,
         assignee_id: UUID | None,
+        assignee_ids: list[UUID] | None = None,
         milestone_id: UUID | None = None,
         parent_task_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
     ) -> Task:
         now = datetime.now(UTC)
+        normalized_assignee_ids = list(
+            dict.fromkeys(assignee_ids or ([assignee_id] if assignee_id else []))
+        )
         task = Task(
             id=uuid.uuid4(),
             project_id=project_id,
@@ -102,7 +106,8 @@ class FakeTaskRepository(TaskRepository):
             status=TaskStatus.BACKLOG,
             priority=priority,
             task_type=task_type,
-            assignee_id=assignee_id,
+            assignee_id=normalized_assignee_ids[0] if normalized_assignee_ids else None,
+            assignee_ids=normalized_assignee_ids,
             created_by=created_by,
             created_at=now,
             updated_at=now,
@@ -149,7 +154,7 @@ class FakeTaskRepository(TaskRepository):
         if task_type is not None:
             results = [task for task in results if task.task_type == task_type]
         if assignee_id is not None:
-            results = [task for task in results if task.assignee_id == assignee_id]
+            results = [task for task in results if assignee_id in task.assignee_ids]
         if milestone_id is not None:
             results = [task for task in results if task.milestone_id == milestone_id]
         if label_id is not None:
@@ -162,7 +167,7 @@ class FakeTaskRepository(TaskRepository):
         return [
             task
             for task in self._tasks.values()
-            if task.assignee_id == assignee_id
+            if assignee_id in task.assignee_ids
             and task.status != TaskStatus.DONE
             and task.parent_task_id is None
         ]
@@ -186,6 +191,13 @@ class FakeTaskRepository(TaskRepository):
         **changes,
     ) -> Task:
         current = self._tasks[task_id]
+        if "assignee_ids" in changes:
+            assignee_ids = list(dict.fromkeys(changes["assignee_ids"] or []))
+            changes["assignee_ids"] = assignee_ids
+            changes["assignee_id"] = assignee_ids[0] if assignee_ids else None
+        elif "assignee_id" in changes:
+            assignee_id = changes["assignee_id"]
+            changes["assignee_ids"] = [assignee_id] if assignee_id else []
         if isinstance(changes.get("closed_at"), date):
             changes["closed_at"] = datetime.combine(
                 changes["closed_at"], datetime.min.time(), tzinfo=UTC

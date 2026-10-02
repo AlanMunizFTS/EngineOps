@@ -10,6 +10,7 @@ import {
 } from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
+import AssigneeMultiSelect from "../components/AssigneeMultiSelect";
 import { LabelChip, PriorityBadge, StatusBadge } from "../components/TaskBadges";
 import ProjectTabs from "../components/ProjectTabs";
 
@@ -31,8 +32,8 @@ export default function TaskDetailPage() {
   const [labels, setLabels] = useState<LabelResponse[]>([]);
   const [comments, setComments] = useState<TaskCommentResponse[]>([]);
   const [history, setHistory] = useState<AuditLogEntryResponse[]>([]);
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeId: "", startDate: "", dueDate: "" });
-  const [newSubtask, setNewSubtask] = useState({ title: "", description: "", assigneeId: "", startDate: "", dueDate: "" });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "" });
+  const [newSubtask, setNewSubtask] = useState({ title: "", description: "", assigneeIds: [] as string[], startDate: "", dueDate: "" });
   const [commentBody, setCommentBody] = useState("");
   const [labelToAdd, setLabelToAdd] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export default function TaskDetailPage() {
       ]);
       setProject(projectData); setTask(taskData); setMembers(memberData); setMilestones(milestoneData);
       setLabels(labelData); setComments(commentData); setHistory(historyData);
-      const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeId: taskData.assignee_id ?? "", startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "" };
+      const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeIds: taskData.assignee_ids, startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "" };
       lastSavedForm.current = JSON.stringify(loadedForm);
       setForm(loadedForm);
       const [children, parentData] = await Promise.all([
@@ -76,7 +77,7 @@ export default function TaskDetailPage() {
           priority: form.priority,
           task_type: form.taskType,
           milestone_id: task.parent_task_id ? undefined : form.milestoneId || null,
-          assignee_id: form.assigneeId || null,
+          assignee_ids: form.assigneeIds,
           start_date: form.startDate || null,
           due_date: form.dueDate || null,
         });
@@ -106,10 +107,10 @@ export default function TaskDetailPage() {
   async function addSubtask() {
     if (!token || !task || !newSubtask.title.trim()) return;
     try {
-      const created = await createSubtask(token, task.id, { title: newSubtask.title.trim(), description: newSubtask.description || null, assignee_id: newSubtask.assigneeId || null, start_date: newSubtask.startDate || null, due_date: newSubtask.dueDate || null });
+      const created = await createSubtask(token, task.id, { title: newSubtask.title.trim(), description: newSubtask.description || null, assignee_ids: newSubtask.assigneeIds, start_date: newSubtask.startDate || null, due_date: newSubtask.dueDate || null });
       setSubtasks((current) => [...current, created]);
       setTask((current) => current ? { ...current, subtasks_total: current.subtasks_total + 1 } : current);
-      setNewSubtask({ title: "", description: "", assigneeId: "", startDate: "", dueDate: "" }); setError(null);
+      setNewSubtask({ title: "", description: "", assigneeIds: [], startDate: "", dueDate: "" }); setError(null);
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to create Subtask"); }
   }
 
@@ -159,7 +160,7 @@ export default function TaskDetailPage() {
         <textarea aria-label="Description" className={`${inputClass} md:col-span-2`} value={form.description} onChange={(e) => field("description", e.target.value)} />
         <select aria-label="Task type" className={inputClass} value={form.taskType} onChange={(e) => field("taskType", e.target.value)}>{TYPES.map((x) => <option key={x}>{x}</option>)}</select>
         {!task.parent_task_id && <select aria-label="Milestone" className={inputClass} value={form.milestoneId} onChange={(e) => field("milestoneId", e.target.value)}><option value="">No milestone</option>{milestones.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}</select>}
-        <select aria-label="Assignee" className={inputClass} value={form.assigneeId} onChange={(e) => field("assigneeId", e.target.value)}><option value="">Unassigned</option>{members.map((m) => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}</select>
+        <AssigneeMultiSelect members={members} selectedIds={form.assigneeIds} onChange={(assigneeIds) => setForm((current) => ({ ...current, assigneeIds }))} />
         <input aria-label="Start date" type="date" className={inputClass} value={form.startDate} onChange={(e) => field("startDate", e.target.value)} />
         <input aria-label="Due date" type="date" className={inputClass} value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
         <p className="self-center text-right text-xs text-slate-500 md:col-span-4" aria-live="polite">
@@ -171,8 +172,8 @@ export default function TaskDetailPage() {
 
       {!task.parent_task_id && <section className="space-y-3 rounded-md border border-ink-800 bg-ink-900 p-4">
         <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold text-slate-100">Subtasks</h2><p className="text-xs text-slate-500">{subtasks.filter((s) => s.status === "done").length} / {subtasks.length} completed</p></div></div>
-        <div className="divide-y divide-ink-800 rounded-md border border-ink-800">{subtasks.map((subtask) => <div key={subtask.id} className="flex items-center gap-3 p-3"><input aria-label={`Complete ${subtask.title}`} type="checkbox" checked={subtask.status === "done"} onChange={(e) => void setStatus(subtask, e.target.checked ? "done" : "todo")} /><Link className="min-w-0 flex-1 truncate text-sm text-slate-200 hover:text-ember-400" to={`/projects/${projectId}/tasks/${subtask.id}`}>{subtask.title}</Link><span className="hidden text-xs text-slate-500 sm:inline">{subtask.assignee_id ? membersById.get(subtask.assignee_id) ?? "Unassigned" : "Unassigned"}</span><StatusBadge status={subtask.status} /><button aria-label={`Delete ${subtask.title}`} className="text-xs text-red-400 hover:text-red-300" onClick={() => void removeSubtask(subtask)}>Delete</button></div>)}</div>
-        <div className="grid gap-2 md:grid-cols-5"><input aria-label="Subtask title" className={inputClass} placeholder="New Subtask" value={newSubtask.title} onChange={(e) => subField("title", e.target.value)} /><input aria-label="Subtask description" className={inputClass} placeholder="Description" value={newSubtask.description} onChange={(e) => subField("description", e.target.value)} /><select aria-label="Subtask assignee" className={inputClass} value={newSubtask.assigneeId} onChange={(e) => subField("assigneeId", e.target.value)}><option value="">Unassigned</option>{members.map((m) => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}</select><input aria-label="Subtask start date" type="date" className={inputClass} value={newSubtask.startDate} onChange={(e) => subField("startDate", e.target.value)} /><input aria-label="Subtask due date" type="date" className={inputClass} value={newSubtask.dueDate} onChange={(e) => subField("dueDate", e.target.value)} /><button className="rounded-md border border-ember-500 px-3 py-2 text-sm text-ember-400 md:col-span-5" onClick={() => void addSubtask()}>+ Add Subtask</button></div>
+        <div className="divide-y divide-ink-800 rounded-md border border-ink-800">{subtasks.map((subtask) => <div key={subtask.id} className="flex items-center gap-3 p-3"><input aria-label={`Complete ${subtask.title}`} type="checkbox" checked={subtask.status === "done"} onChange={(e) => void setStatus(subtask, e.target.checked ? "done" : "todo")} /><Link className="min-w-0 flex-1 truncate text-sm text-slate-200 hover:text-ember-400" to={`/projects/${projectId}/tasks/${subtask.id}`}>{subtask.title}</Link><span className="hidden text-xs text-slate-500 sm:inline">{subtask.assignee_ids.length ? subtask.assignee_ids.map((id) => membersById.get(id) ?? "Unknown").join(", ") : "Unassigned"}</span><StatusBadge status={subtask.status} /><button aria-label={`Delete ${subtask.title}`} className="text-xs text-red-400 hover:text-red-300" onClick={() => void removeSubtask(subtask)}>Delete</button></div>)}</div>
+        <div className="grid gap-2 md:grid-cols-5"><input aria-label="Subtask title" className={inputClass} placeholder="New Subtask" value={newSubtask.title} onChange={(e) => subField("title", e.target.value)} /><input aria-label="Subtask description" className={inputClass} placeholder="Description" value={newSubtask.description} onChange={(e) => subField("description", e.target.value)} /><AssigneeMultiSelect label="Subtask assignees" members={members} selectedIds={newSubtask.assigneeIds} onChange={(assigneeIds) => setNewSubtask((current) => ({ ...current, assigneeIds }))} /><input aria-label="Subtask start date" type="date" className={inputClass} value={newSubtask.startDate} onChange={(e) => subField("startDate", e.target.value)} /><input aria-label="Subtask due date" type="date" className={inputClass} value={newSubtask.dueDate} onChange={(e) => subField("dueDate", e.target.value)} /><button className="rounded-md border border-ember-500 px-3 py-2 text-sm text-ember-400 md:col-span-5" onClick={() => void addSubtask()}>+ Add Subtask</button></div>
       </section>}
 
       <section className="rounded-md border border-ink-800 bg-ink-900 p-4"><h2 className="mb-3 text-sm font-semibold text-slate-100">Comments</h2><div className="space-y-2">{comments.map((comment) => <div key={comment.id} className="rounded bg-ink-800 p-3 text-sm text-slate-300"><p>{comment.body}</p><time className="mt-1 block text-xs text-slate-500">{new Date(comment.created_at).toLocaleString()}</time></div>)}</div><div className="mt-3 flex gap-2"><input aria-label="Comment" className={`${inputClass} flex-1`} value={commentBody} onChange={(e) => setCommentBody(e.target.value)} placeholder="Add a comment" /><button className="rounded-md bg-ember-500 px-3 text-sm text-white" onClick={() => void addComment()}>Comment</button></div></section>

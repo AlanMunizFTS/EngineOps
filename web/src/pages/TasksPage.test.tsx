@@ -40,6 +40,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
     priority: "medium",
     task_type: "task",
     assignee_id: null,
+    assignee_ids: [],
     created_by: null,
     created_at: "2026-09-01",
     updated_at: "2026-09-01",

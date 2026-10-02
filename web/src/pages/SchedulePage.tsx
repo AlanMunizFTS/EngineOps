@@ -291,8 +291,8 @@ function matchesFilters(task: TaskResponse, filters: ScheduleFilters, todayIso: 
   }
   if (filters.responsible) {
     if (filters.responsible === UNASSIGNED_FILTER_VALUE) {
-      if (task.assignee_id !== null) return false;
-    } else if (task.assignee_id !== filters.responsible) {
+      if (task.assignee_ids.length > 0) return false;
+    } else if (!task.assignee_ids.includes(filters.responsible)) {
       return false;
     }
   }
@@ -504,6 +504,7 @@ function ScheduleActivityInfoRow({
           <select
             value={task.assignee_id ?? ""}
             onChange={(e) => onFieldChange(task.id, { assignee_id: e.target.value || null })}
+            title={task.assignee_ids.map((id) => members.find((member) => member.user_id === id)?.full_name ?? "Unknown").join(", ") || "Unassigned"}
             className={`h-full w-full truncate border-b border-r border-ink-800 px-1 text-slate-400 outline-none ${rowBg}`}
             style={infoCellStyle(2, rowIndex)}
           >

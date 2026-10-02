@@ -53,6 +53,39 @@ def test_create_task_defaults_to_backlog(client: TestClient, auth_headers: dict[
     assert body["labels"] == []
 
 
+def test_task_supports_multiple_assignees(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    assignee_ids = [uuid.uuid4(), uuid.uuid4()]
+
+    created = client.post(
+        f"/projects/{project_id}/tasks",
+        json={"title": "Joint inspection", "assignee_ids": [str(item) for item in assignee_ids]},
+        headers=auth_headers,
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["assignee_ids"] == [str(item) for item in assignee_ids]
+    assert body["assignee_id"] == str(assignee_ids[0])
+
+    replacement = uuid.uuid4()
+    updated = client.patch(
+        f"/tasks/{body['id']}",
+        json={"assignee_id": str(replacement)},
+        headers=auth_headers,
+    ).json()
+    assert updated["assignee_ids"] == [str(replacement), str(assignee_ids[1])]
+
+    filtered = client.get(
+        f"/projects/{project_id}/tasks",
+        params={"assignee_id": str(assignee_ids[1])},
+        headers=auth_headers,
+    )
+    assert [task["id"] for task in filtered.json()] == [body["id"]]
+
+
 def test_create_task_records_audit_entry(client: TestClient, auth_headers: dict[str, str]) -> None:
     project_id = _create_project(client, auth_headers)
     client.post(

@@ -87,10 +87,33 @@ export interface ActivityEntryResponse {
   occurred_at: string;
 }
 
+function formatFieldPath(location: unknown): string {
+  if (!Array.isArray(location)) return "";
+  return location
+    .filter((part) => part !== "body")
+    .map((part) => String(part).replace(/_/g, " "))
+    .join(" > ");
+}
+
+function apiErrorMessage(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object" || !("detail" in body)) return fallback;
+  const detail = body.detail;
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return fallback;
+
+  const messages = detail.flatMap((item) => {
+    if (!item || typeof item !== "object" || !("msg" in item)) return [];
+    const message = typeof item.msg === "string" ? item.msg : fallback;
+    const field = "loc" in item ? formatFieldPath(item.loc) : "";
+    return [field ? `${field}: ${message}` : message];
+  });
+  return messages.length > 0 ? messages.join(". ") : fallback;
+}
+
 async function parseOrThrow<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const body = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(body.detail ?? "Request failed");
+    const body: unknown = await response.json().catch(() => null);
+    throw new Error(apiErrorMessage(body, response.statusText || "Request failed"));
   }
   if (response.status === 204) {
     return undefined as T;
@@ -207,8 +230,8 @@ export async function downloadProjectExport(token: string, projectId: string): P
   });
   notifyIfAuthenticationExpired(response);
   if (!response.ok) {
-    const body = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(body.detail ?? "Export failed");
+    const body: unknown = await response.json().catch(() => null);
+    throw new Error(apiErrorMessage(body, response.statusText || "Export failed"));
   }
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const filenameMatch = /filename="?([^"]+)"?/.exec(disposition);

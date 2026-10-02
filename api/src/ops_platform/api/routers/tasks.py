@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -53,7 +53,7 @@ def _service(
     return TaskService(tasks, milestones, labels)
 
 
-def _raise_http(exc: Exception) -> None:
+def _raise_http(exc: Exception) -> NoReturn:
     if isinstance(exc, NotFoundError):
         code = status.HTTP_404_NOT_FOUND
     elif isinstance(exc, ConflictError):
@@ -61,6 +61,14 @@ def _raise_http(exc: Exception) -> None:
     else:
         code = status.HTTP_422_UNPROCESSABLE_ENTITY
     raise HTTPException(status_code=code, detail=str(exc)) from exc
+
+
+def _audit_value(value: Any) -> Any:
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, list):
+        return [_audit_value(item) for item in value]
+    return value
 
 
 def task_response(task: Task) -> TaskResponse:
@@ -79,6 +87,7 @@ def task_response(task: Task) -> TaskResponse:
         priority=task.priority,
         task_type=task.task_type,
         assignee_id=task.assignee_id,
+        assignee_ids=task.assignee_ids,
         created_by=task.created_by,
         created_at=task.created_at,
         updated_at=task.updated_at,
@@ -240,9 +249,7 @@ async def update_task(
         entity_type="task",
         entity_id=task_id,
         action=f"{role}.updated",
-        diff={
-            key: str(value) if isinstance(value, UUID) else value for key, value in changes.items()
-        },
+        diff={key: _audit_value(value) for key, value in changes.items()},
     )
     await session.commit()
     return task_response(updated)

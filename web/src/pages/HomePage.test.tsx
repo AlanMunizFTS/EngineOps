@@ -8,6 +8,8 @@ import HomePage from "./HomePage";
 const api = vi.hoisted(() => ({
   createTask: vi.fn(),
   getRecentActivity: vi.fn(),
+  listMilestones: vi.fn(),
+  listProjectMembers: vi.fn(),
   listProjects: vi.fn(),
   listProjectTasks: vi.fn(),
   updateTask: vi.fn(),
@@ -24,10 +26,12 @@ vi.mock("../auth/AuthContext", () => ({
 vi.mock("../api/client", () => ({
   createProject: vi.fn(),
   getRecentActivity: api.getRecentActivity,
+  listProjectMembers: api.listProjectMembers,
   listProjects: api.listProjects,
 }));
 vi.mock("../api/client_tasks", () => ({
   createTask: api.createTask,
+  listMilestones: api.listMilestones,
   listProjectTasks: api.listProjectTasks,
   updateTask: api.updateTask,
   updateTaskStatus: api.updateTaskStatus,
@@ -67,6 +71,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
     priority: "medium",
     task_type: "task",
     assignee_id: null,
+    assignee_ids: [],
     created_by: null,
     created_at: "2026-09-01",
     updated_at: "2026-09-01",
@@ -93,6 +98,13 @@ describe("HomePage weekly plan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getRecentActivity.mockResolvedValue([]);
+    api.listProjectMembers.mockResolvedValue([
+      { project_id: "project-1", user_id: "user-1", project_role: "contributor", added_at: "2026-09-01", email: "ada@example.com", full_name: "Ada Lovelace" },
+      { project_id: "project-1", user_id: "user-2", project_role: "contributor", added_at: "2026-09-01", email: "grace@example.com", full_name: "Grace Hopper" },
+    ]);
+    api.listMilestones.mockResolvedValue([
+      { id: "milestone-1", project_id: "project-1", title: "Launch", description: null, status: "open", due_date: null, created_at: "2026-09-01", updated_at: "2026-09-01", total_tasks: 0, completed_tasks: 0, progress_percentage: 0 },
+    ]);
     api.listProjects.mockResolvedValue([
       {
         id: "project-1",
@@ -142,7 +154,11 @@ describe("HomePage weekly plan", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New day task" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await screen.findByLabelText("Ada Lovelace");
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "New inspection" } });
+    fireEvent.change(screen.getByLabelText("Milestone"), { target: { value: "milestone-1" } });
+    fireEvent.click(screen.getByLabelText("Ada Lovelace"));
+    fireEvent.click(screen.getByLabelText("Grace Hopper"));
     fireEvent.click(screen.getByRole("button", { name: "Create Task" }));
 
     await waitFor(() =>
@@ -151,6 +167,8 @@ describe("HomePage weekly plan", () => {
         due_date: "2026-10-03",
         priority: "medium",
         task_type: "task",
+        milestone_id: "milestone-1",
+        assignee_ids: ["user-1", "user-2"],
       }),
     );
   });

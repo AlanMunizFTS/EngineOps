@@ -9,7 +9,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
   return {
     id: "task-1", project_id: "project-1", milestone_id: "milestone-1", parent_task_id: null,
     title: "Top-level calibration", description: null, status: "todo", priority: "high",
-    task_type: "task", assignee_id: null, created_by: null, created_at: "2026-09-01",
+    task_type: "task", assignee_id: null, assignee_ids: [], created_by: null, created_at: "2026-09-01",
     updated_at: "2026-09-01", closed_at: null, closed_at_date: null, parent_assigned_at: null,
     start_date: null, due_date: null, days_planned: null, days_taken: null, urgency: null,
     priority_score: null, schedule_status: null, labels: [], subtasks_total: 2, subtasks_completed: 1,

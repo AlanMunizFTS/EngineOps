@@ -141,6 +141,23 @@ class TaskORM(Base):
     )
 
     labels: Mapped[list[LabelORM]] = relationship(secondary="task_labels", lazy="selectin")
+    assignee_links: Mapped[list["TaskAssigneeORM"]] = relationship(
+        order_by="TaskAssigneeORM.position",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+
+class TaskAssigneeORM(Base):
+    __tablename__ = "task_assignees"
+
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer(), nullable=False, default=0)
 
 
 class TaskLabelORM(Base):

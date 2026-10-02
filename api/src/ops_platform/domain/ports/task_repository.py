@@ -20,6 +20,7 @@ class TaskRepository(ABC):
         priority: TaskPriority,
         created_by: UUID | None,
         assignee_id: UUID | None,
+        assignee_ids: list[UUID] | None = None,
         milestone_id: UUID | None = None,
         parent_task_id: UUID | None = None,
         start_date: date | None = None,

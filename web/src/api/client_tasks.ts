@@ -42,6 +42,7 @@ export interface TaskResponse {
   priority: TaskPriority;
   task_type: TaskType;
   assignee_id: string | null;
+  assignee_ids: string[];
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -211,6 +212,7 @@ export interface TaskCreateFields {
   status?: TaskStatus;
   milestone_id?: string | null;
   assignee_id?: string | null;
+  assignee_ids?: string[];
   start_date?: string | null;
   due_date?: string | null;
 }
@@ -246,6 +248,7 @@ export interface TaskUpdateFields {
   priority?: TaskPriority;
   milestone_id?: string | null;
   assignee_id?: string | null;
+  assignee_ids?: string[];
   start_date?: string | null;
   due_date?: string | null;
   closed_at?: string | null;

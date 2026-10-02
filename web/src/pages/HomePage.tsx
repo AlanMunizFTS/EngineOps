@@ -4,15 +4,19 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createProject,
   getRecentActivity,
+  listProjectMembers,
   listProjects,
   type ActivityEntryResponse,
+  type ProjectMemberDetailResponse,
   type ProjectResponse,
 } from "../api/client";
 import {
   createTask,
+  listMilestones,
   listProjectTasks,
   updateTask,
   updateTaskStatus,
+  type MilestoneResponse,
   type TaskPriority,
   type TaskResponse,
   type TaskStatus,
@@ -21,6 +25,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import AskBox from "../components/AskBox";
+import AssigneeMultiSelect from "../components/AssigneeMultiSelect";
 import ChangelogCard from "../components/ChangelogCard";
 import Modal, { ModalActions } from "../components/Modal";
 import RoadmapCard from "../components/RoadmapCard";
@@ -70,7 +75,12 @@ export default function HomePage() {
     dueDate: "",
     priority: "medium" as TaskPriority,
     taskType: "task" as TaskType,
+    milestoneId: "",
+    assigneeIds: [] as string[],
   });
+  const [taskMembers, setTaskMembers] = useState<ProjectMemberDetailResponse[]>([]);
+  const [taskMilestones, setTaskMilestones] = useState<MilestoneResponse[]>([]);
+  const [isLoadingTaskOptions, setIsLoadingTaskOptions] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -109,6 +119,36 @@ export default function HomePage() {
   useEffect(() => {
     setShowCreateForm(searchParams.get("create") === "1");
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!token || !showTaskModal || !taskDraft.projectId) {
+      setTaskMembers([]);
+      setTaskMilestones([]);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingTaskOptions(true);
+    Promise.all([
+      listProjectMembers(token, taskDraft.projectId),
+      listMilestones(token, taskDraft.projectId),
+    ])
+      .then(([members, milestones]) => {
+        if (cancelled) return;
+        setTaskMembers(members);
+        setTaskMilestones(milestones);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setTaskCreateError(err instanceof Error ? err.message : "Failed to load Task options");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingTaskOptions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, showTaskModal, taskDraft.projectId]);
 
   function closeCreateForm() {
     if (isCreating) return;
@@ -180,6 +220,8 @@ export default function HomePage() {
       dueDate,
       priority: "medium",
       taskType: "task",
+      milestoneId: "",
+      assigneeIds: [],
     });
     setTaskCreateError(null);
     setShowTaskModal(true);
@@ -202,6 +244,8 @@ export default function HomePage() {
         due_date: taskDraft.dueDate,
         priority: taskDraft.priority,
         task_type: taskDraft.taskType,
+        milestone_id: taskDraft.milestoneId || null,
+        assignee_ids: taskDraft.assigneeIds,
       });
       setWeeklyTasks((current) => [...current, created]);
       setShowTaskModal(false);
@@ -353,7 +397,12 @@ export default function HomePage() {
               <span className="mb-1 block text-xs font-medium text-slate-400">Project</span>
               <select
                 value={taskDraft.projectId}
-                onChange={(event) => setTaskDraft((current) => ({ ...current, projectId: event.target.value }))}
+                onChange={(event) => setTaskDraft((current) => ({
+                  ...current,
+                  projectId: event.target.value,
+                  milestoneId: "",
+                  assigneeIds: [],
+                }))}
                 required
                 className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500"
               >
@@ -361,6 +410,24 @@ export default function HomePage() {
                 {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
               </select>
             </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Milestone</span>
+              <select
+                aria-label="Milestone"
+                value={taskDraft.milestoneId}
+                onChange={(event) => setTaskDraft((current) => ({ ...current, milestoneId: event.target.value }))}
+                disabled={isLoadingTaskOptions}
+                className="w-full rounded-md border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-ember-500 disabled:opacity-50"
+              >
+                <option value="">No milestone</option>
+                {taskMilestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
+              </select>
+            </label>
+            <AssigneeMultiSelect
+              members={taskMembers}
+              selectedIds={taskDraft.assigneeIds}
+              onChange={(assigneeIds) => setTaskDraft((current) => ({ ...current, assigneeIds }))}
+            />
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-400">Title</span>
               <input

@@ -65,7 +65,7 @@ def _sort_key(
 
 
 def _write_row(ws: Worksheet, task: Task, column_name: str, member_names: dict[UUID, str]) -> None:
-    assignee = member_names.get(task.assignee_id, "") if task.assignee_id else ""
+    assignee = ", ".join(member_names.get(user_id, "") for user_id in task.assignee_ids)
     ws.append(
         [
             column_name,

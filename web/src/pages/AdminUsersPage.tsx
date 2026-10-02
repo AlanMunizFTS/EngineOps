@@ -47,7 +47,12 @@ export default function AdminUsersPage() {
 
   async function handleCreateUser() {
     if (!token || !email.trim() || !password || !fullName.trim()) return;
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     try {
+      setError(null);
       const fields = {
         email: email.trim(),
         password,
@@ -80,7 +85,12 @@ export default function AdminUsersPage() {
 
   async function handleUpdateUser() {
     if (!token || !editingUser || !editEmail.trim() || !editFullName.trim()) return;
+    if (editPassword && editPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     try {
+      setError(null);
       const updated = await updateAdminUser(token, editingUser.id, {
         email: editEmail.trim(),
         full_name: editFullName.trim(),
@@ -131,6 +141,7 @@ export default function AdminUsersPage() {
             <input
               type="password"
               placeholder="Temporary password"
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="flex-1 rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-ember-500"
@@ -180,6 +191,7 @@ export default function AdminUsersPage() {
                   <input
                     type="password"
                     placeholder="New password (optional)"
+                    minLength={8}
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
                     className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-ember-500"

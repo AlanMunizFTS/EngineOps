@@ -40,12 +40,20 @@ class TaskService:
         priority: TaskPriority = TaskPriority.MEDIUM,
         created_by: UUID | None = None,
         assignee_id: UUID | None = None,
+        assignee_ids: list[UUID] | None = None,
         milestone_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
     ) -> Task:
         if milestone_id is not None:
             await self._validate_milestone(project_id, milestone_id)
+        normalized_assignee_ids = list(
+            dict.fromkeys(
+                assignee_ids
+                if assignee_ids is not None
+                else ([assignee_id] if assignee_id else [])
+            )
+        )
         return await self.tasks.create(
             project_id=project_id,
             title=title,
@@ -53,7 +61,8 @@ class TaskService:
             task_type=task_type,
             priority=priority,
             created_by=created_by,
-            assignee_id=assignee_id,
+            assignee_id=normalized_assignee_ids[0] if normalized_assignee_ids else None,
+            assignee_ids=normalized_assignee_ids,
             milestone_id=milestone_id,
             start_date=start_date,
             due_date=due_date,
@@ -70,6 +79,7 @@ class TaskService:
         priority: TaskPriority = TaskPriority.MEDIUM,
         created_by: UUID | None = None,
         assignee_id: UUID | None = None,
+        assignee_ids: list[UUID] | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
     ) -> Task:
@@ -82,6 +92,13 @@ class TaskService:
             raise ConflictError("Nested Subtasks are not allowed")
         if parent.status == TaskStatus.DONE:
             raise ConflictError("Reopen the parent task before adding a subtask")
+        normalized_assignee_ids = list(
+            dict.fromkeys(
+                assignee_ids
+                if assignee_ids is not None
+                else ([assignee_id] if assignee_id else [])
+            )
+        )
         return await self.tasks.create(
             project_id=project_id,
             title=title,
@@ -89,7 +106,8 @@ class TaskService:
             task_type=task_type,
             priority=priority,
             created_by=created_by,
-            assignee_id=assignee_id,
+            assignee_id=normalized_assignee_ids[0] if normalized_assignee_ids else None,
+            assignee_ids=normalized_assignee_ids,
             parent_task_id=parent.id,
             milestone_id=None,
             start_date=start_date,
@@ -98,6 +116,24 @@ class TaskService:
 
     async def update_task(self, task_id: UUID, **changes: Any) -> Task:
         task = await self.get(task_id)
+        if "assignee_ids" in changes:
+            assignee_ids = list(dict.fromkeys(changes["assignee_ids"] or []))
+            changes["assignee_ids"] = assignee_ids
+            changes["assignee_id"] = assignee_ids[0] if assignee_ids else None
+        elif "assignee_id" in changes:
+            assignee_id = changes["assignee_id"]
+            changes["assignee_ids"] = (
+                [
+                    assignee_id,
+                    *(
+                        existing_id
+                        for existing_id in task.assignee_ids
+                        if existing_id not in {task.assignee_id, assignee_id}
+                    ),
+                ]
+                if assignee_id
+                else []
+            )
         if "parent_task_id" in changes:
             raise ValidationError("Use the parent operation to change Task hierarchy")
         if "milestone_id" in changes:

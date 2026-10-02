@@ -14,6 +14,7 @@ class TaskCreateRequest(BaseModel):
     task_type: TaskType = TaskType.TASK
     priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: UUID | None = None
+    assignee_ids: list[UUID] | None = None
     milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
@@ -25,6 +26,7 @@ class TaskUpdateRequest(BaseModel):
     task_type: TaskType | None = None
     priority: TaskPriority | None = None
     assignee_id: UUID | None = None
+    assignee_ids: list[UUID] | None = None
     milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
@@ -50,6 +52,7 @@ class TaskResponse(BaseModel):
     priority: TaskPriority
     task_type: TaskType
     assignee_id: UUID | None
+    assignee_ids: list[UUID]
     created_by: UUID | None
     created_at: datetime
     updated_at: datetime

@@ -80,8 +80,8 @@ export default function KanbanPage() {
     if (!assigneeFilter) return tasks;
     return tasks.filter((task) =>
       assigneeFilter === UNASSIGNED_FILTER_VALUE
-        ? task.assignee_id === null
-        : task.assignee_id === assigneeFilter,
+        ? task.assignee_ids.length === 0
+        : task.assignee_ids.includes(assigneeFilter),
     );
   }, [tasks, assigneeFilter]);
 

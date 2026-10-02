@@ -7,7 +7,12 @@ from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops_platform.adapters.db.orm_models_tasks import LabelORM, TaskLabelORM, TaskORM
+from ops_platform.adapters.db.orm_models_tasks import (
+    LabelORM,
+    TaskAssigneeORM,
+    TaskLabelORM,
+    TaskORM,
+)
 from ops_platform.domain.entities import Label, Task, TaskPriority, TaskStatus, TaskType
 from ops_platform.domain.ports.task_repository import TaskRepository
 
@@ -17,6 +22,7 @@ def _to_label(row: LabelORM) -> Label:
 
 
 def _to_entity(row: TaskORM, total: int = 0, completed: int = 0) -> Task:
+    assignee_ids = [link.user_id for link in row.assignee_links]
     return Task(
         id=row.id,
         project_id=row.project_id,
@@ -27,7 +33,8 @@ def _to_entity(row: TaskORM, total: int = 0, completed: int = 0) -> Task:
         status=row.status,
         priority=row.priority,
         task_type=row.task_type,
-        assignee_id=row.assignee_id,
+        assignee_id=assignee_ids[0] if assignee_ids else None,
+        assignee_ids=assignee_ids,
         created_by=row.created_by,
         start_date=row.start_date,
         due_date=row.due_date,
@@ -78,11 +85,19 @@ class SqlAlchemyTaskRepository(TaskRepository):
         priority: TaskPriority,
         created_by: UUID | None,
         assignee_id: UUID | None,
+        assignee_ids: list[UUID] | None = None,
         milestone_id: UUID | None = None,
         parent_task_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
     ) -> Task:
+        normalized_assignee_ids = list(
+            dict.fromkeys(
+                assignee_ids
+                if assignee_ids is not None
+                else ([assignee_id] if assignee_id else [])
+            )
+        )
         row = TaskORM(
             project_id=project_id,
             title=title,
@@ -90,7 +105,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
             task_type=task_type,
             priority=priority,
             created_by=created_by,
-            assignee_id=assignee_id,
+            assignee_id=normalized_assignee_ids[0] if normalized_assignee_ids else None,
             milestone_id=milestone_id,
             parent_task_id=parent_task_id,
             parent_assigned_at=datetime.now(UTC) if parent_task_id else None,
@@ -99,7 +114,14 @@ class SqlAlchemyTaskRepository(TaskRepository):
         )
         self._session.add(row)
         await self._session.flush()
-        await self._session.refresh(row, attribute_names=["labels", "created_at", "updated_at"])
+        self._session.add_all(
+            TaskAssigneeORM(task_id=row.id, user_id=user_id, position=position)
+            for position, user_id in enumerate(normalized_assignee_ids)
+        )
+        await self._session.flush()
+        await self._session.refresh(
+            row, attribute_names=["labels", "assignee_links", "created_at", "updated_at"]
+        )
         return _to_entity(row)
 
     async def get(self, task_id: UUID) -> Task | None:
@@ -128,7 +150,11 @@ class SqlAlchemyTaskRepository(TaskRepository):
         if task_type is not None:
             query = query.where(TaskORM.task_type == task_type)
         if assignee_id is not None:
-            query = query.where(TaskORM.assignee_id == assignee_id)
+            query = query.where(
+                TaskORM.id.in_(
+                    select(TaskAssigneeORM.task_id).where(TaskAssigneeORM.user_id == assignee_id)
+                )
+            )
         if milestone_id is not None:
             query = query.where(TaskORM.milestone_id == milestone_id)
         if label_id is not None:
@@ -142,7 +168,9 @@ class SqlAlchemyTaskRepository(TaskRepository):
         result = await self._session.execute(
             select(TaskORM)
             .where(
-                TaskORM.assignee_id == assignee_id,
+                TaskORM.id.in_(
+                    select(TaskAssigneeORM.task_id).where(TaskAssigneeORM.user_id == assignee_id)
+                ),
                 TaskORM.status != TaskStatus.DONE,
                 TaskORM.parent_task_id.is_(None),
             )
@@ -174,12 +202,29 @@ class SqlAlchemyTaskRepository(TaskRepository):
 
     async def update(self, task_id: UUID, **changes: Any) -> Task:
         row = await self._get_or_raise(task_id)
+        has_assignee_ids = "assignee_ids" in changes
+        assignee_ids: list[UUID] | None = changes.pop("assignee_ids", None)
+        if has_assignee_ids:
+            changes.pop("assignee_id", None)
+        elif "assignee_id" in changes:
+            assignee_id = changes.pop("assignee_id")
+            assignee_ids = [assignee_id] if assignee_id else []
+            has_assignee_ids = True
+        if has_assignee_ids:
+            normalized_assignee_ids = list(dict.fromkeys(assignee_ids or []))
+            await self._session.execute(
+                delete(TaskAssigneeORM).where(TaskAssigneeORM.task_id == task_id)
+            )
+            self._session.add_all(
+                TaskAssigneeORM(task_id=task_id, user_id=user_id, position=position)
+                for position, user_id in enumerate(normalized_assignee_ids)
+            )
+            row.assignee_id = normalized_assignee_ids[0] if normalized_assignee_ids else None
         allowed = {
             "title",
             "description",
             "priority",
             "task_type",
-            "assignee_id",
             "milestone_id",
             "start_date",
             "due_date",
@@ -197,7 +242,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
             setattr(row, field, value)
         row.updated_at = datetime.now(UTC)
         await self._session.flush()
-        await self._session.refresh(row, attribute_names=["labels"])
+        await self._session.refresh(row, attribute_names=["labels", "assignee_links"])
         return await self._entity(row)
 
     async def set_status(self, task_id: UUID, status: TaskStatus) -> Task:
@@ -206,7 +251,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
         row.closed_at = datetime.now(UTC) if status == TaskStatus.DONE else None
         row.updated_at = datetime.now(UTC)
         await self._session.flush()
-        await self._session.refresh(row, attribute_names=["labels"])
+        await self._session.refresh(row, attribute_names=["labels", "assignee_links"])
         return await self._entity(row)
 
     async def reparent(self, task_id: UUID, parent_task_id: UUID | None) -> Task:
@@ -217,7 +262,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
         row.milestone_id = None
         row.updated_at = datetime.now(UTC)
         await self._session.flush()
-        await self._session.refresh(row, attribute_names=["labels"])
+        await self._session.refresh(row, attribute_names=["labels", "assignee_links"])
         return await self._entity(row)
 
     async def attach_label(self, task_id: UUID, label_id: UUID) -> Task:
@@ -225,7 +270,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
         if not any(label.id == label_id for label in row.labels):
             self._session.add(TaskLabelORM(task_id=task_id, label_id=label_id))
             await self._session.flush()
-            await self._session.refresh(row, attribute_names=["labels"])
+            await self._session.refresh(row, attribute_names=["labels", "assignee_links"])
         return await self._entity(row)
 
     async def detach_label(self, task_id: UUID, label_id: UUID) -> Task:
@@ -236,7 +281,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
             )
         )
         await self._session.flush()
-        await self._session.refresh(row, attribute_names=["labels"])
+        await self._session.refresh(row, attribute_names=["labels", "assignee_links"])
         return await self._entity(row)
 
     async def delete(self, task_id: UUID) -> None:
