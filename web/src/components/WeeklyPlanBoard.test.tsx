@@ -80,7 +80,8 @@ describe("WeeklyPlanBoard", () => {
     );
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.queryByText(/completed/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("In progress")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("2026-09-28 status")).toHaveTextContent("In progress");
+    expect(screen.getByLabelText("2026-10-01 status")).toHaveTextContent("Done");
 
     fireEvent.click(screen.getByRole("button", { name: "Create task for 2026-10-01" }));
     expect(onCreateTask).toHaveBeenCalledWith("2026-10-01");
@@ -93,6 +94,7 @@ describe("WeeklyPlanBoard", () => {
     fireEvent.click(screen.getByLabelText("Show Validate camera"));
     expect(screen.queryByRole("link", { name: "Validate camera" })).not.toBeInTheDocument();
     expect(screen.getByText("No Tasks selected")).toBeInTheDocument();
+    expect(screen.queryByLabelText("2026-09-28 status")).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Weekly progress" })).toHaveAttribute(
       "aria-valuenow",
       "100",

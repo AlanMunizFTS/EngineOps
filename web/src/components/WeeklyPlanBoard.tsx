@@ -133,13 +133,22 @@ function WeekdayColumn({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const visibleTasks = tasks.filter((task) => !hiddenTaskIds.includes(task.id));
   const allVisible = visibleTasks.length === tasks.length;
+  const completedVisibleTasks = visibleTasks.filter((task) => task.status === "done").length;
+  const isDayComplete = visibleTasks.length > 0
+    && completedVisibleTasks === visibleTasks.length;
+  const dayStatus = visibleTasks.length === 0
+    ? null
+    : isDayComplete ? "Done" : "In progress";
+  const completionColor = visibleTasks.length === 0
+    ? isToday ? "bg-sky-500/5" : "bg-ink-900"
+    : isDayComplete ? "bg-emerald-500/10" : "bg-amber-500/10";
 
   return (
     <section
       ref={setNodeRef}
       aria-label={date.toLocaleDateString(undefined, { weekday: "long" })}
       className={`flex min-h-72 flex-col border-r border-ink-800 p-2 last:border-r-0 ${
-        isOver ? "bg-ember-500/20" : isToday ? "bg-sky-500/5" : "bg-ink-900"
+        isOver ? "bg-ember-500/20" : completionColor
       }`}
     >
       <header className="relative mb-2 border-b border-ink-800 pb-2 text-center">
@@ -160,6 +169,16 @@ function WeekdayColumn({
         }`}>
           {date.getDate()}
         </p>
+        {dayStatus && (
+          <p
+            aria-label={`${dateKey} status`}
+            className={`mt-2 text-base font-extrabold uppercase tracking-wide ${
+              isDayComplete ? "text-emerald-400" : "text-amber-300"
+            }`}
+          >
+            {dayStatus}
+          </p>
+        )}
         {tasks.length > 0 && (
           <div className="relative mt-2 text-left">
             <button
