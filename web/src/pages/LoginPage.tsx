@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { setSession } = useAuth();
+  const { sessionExpired, setSession } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(event: React.FormEvent) {
@@ -60,6 +60,12 @@ export default function LoginPage() {
             className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-ember-500 focus:ring-1 focus:ring-ember-500"
           />
         </div>
+
+        {sessionExpired && (
+          <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+            Your session expired. Please sign in again.
+          </p>
+        )}
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 

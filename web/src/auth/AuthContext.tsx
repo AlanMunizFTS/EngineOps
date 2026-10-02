@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
-import { getCurrentUser, type UserResponse } from "../api/client";
+import {
+  AUTHENTICATION_EXPIRED_EVENT,
+  getCurrentUser,
+  type UserResponse,
+} from "../api/client";
 
 const TOKEN_STORAGE_KEY = "engineops_token";
 
@@ -9,6 +13,7 @@ interface AuthContextValue {
   token: string | null;
   user: UserResponse | null;
   isLoading: boolean;
+  sessionExpired: boolean;
   setSession: (token: string, user: UserResponse) => void;
   logout: () => void;
 }
@@ -21,6 +26,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    function handleAuthenticationExpired() {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setToken(null);
+      setUser(null);
+      setSessionExpired(true);
+    }
+
+    window.addEventListener(AUTHENTICATION_EXPIRED_EVENT, handleAuthenticationExpired);
+    return () => {
+      window.removeEventListener(AUTHENTICATION_EXPIRED_EVENT, handleAuthenticationExpired);
+    };
+  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -32,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         setToken(null);
+        setUser(null);
       })
       .finally(() => setIsLoading(false));
   }, [token]);
@@ -40,16 +61,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
     setToken(nextToken);
     setUser(nextUser);
+    setSessionExpired(false);
   }
 
   function logout() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setUser(null);
+    setSessionExpired(false);
   }
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, setSession, logout }}>
+    <AuthContext.Provider
+      value={{ token, user, isLoading, sessionExpired, setSession, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

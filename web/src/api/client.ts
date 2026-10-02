@@ -1,5 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+export const AUTHENTICATION_EXPIRED_EVENT = "engineops:authentication-expired";
+
+function notifyIfAuthenticationExpired(response: Response): void {
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTHENTICATION_EXPIRED_EVENT));
+  }
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -103,6 +111,7 @@ export async function authFetch<T>(
       ...options.headers,
     },
   });
+  notifyIfAuthenticationExpired(response);
   return parseOrThrow<T>(response);
 }
 
@@ -119,6 +128,7 @@ export async function getCurrentUser(token: string): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  notifyIfAuthenticationExpired(response);
   return parseOrThrow<UserResponse>(response);
 }
 
@@ -195,6 +205,7 @@ export async function downloadProjectExport(token: string, projectId: string): P
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}/export.xlsx`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  notifyIfAuthenticationExpired(response);
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(body.detail ?? "Export failed");
