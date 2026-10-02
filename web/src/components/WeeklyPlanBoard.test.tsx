@@ -50,7 +50,7 @@ describe("WeeklyPlanBoard", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("renders Monday through Sunday and shows completion state", () => {
+  it("renders the weekly progress using only visible tasks", () => {
     const onCreateTask = vi.fn();
     const onChangeStatus = vi.fn();
     render(
@@ -74,12 +74,13 @@ describe("WeeklyPlanBoard", () => {
     expect(screen.getByText("Publish report")).toHaveClass("line-through");
     expect(screen.queryByText("Next week")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Completed")).toBeInTheDocument();
-    const monday = screen.getByText("Validate camera").closest("section");
-    const thursday = screen.getByText("Publish report").closest("section");
-    expect(monday).toHaveClass("bg-amber-500/10");
-    expect(monday).toHaveTextContent("In progress");
-    expect(thursday).toHaveClass("bg-emerald-500/10");
-    expect(thursday).toHaveTextContent("Done");
+    expect(screen.getByRole("progressbar", { name: "Weekly progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "50",
+    );
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.queryByText(/completed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("In progress")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create task for 2026-10-01" }));
     expect(onCreateTask).toHaveBeenCalledWith("2026-10-01");
@@ -92,8 +93,17 @@ describe("WeeklyPlanBoard", () => {
     fireEvent.click(screen.getByLabelText("Show Validate camera"));
     expect(screen.queryByRole("link", { name: "Validate camera" })).not.toBeInTheDocument();
     expect(screen.getByText("No Tasks selected")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Weekly progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    expect(screen.getByText("100%")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Show Validate camera"));
     expect(screen.getByRole("link", { name: "Validate camera" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Weekly progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "50",
+    );
   });
 
   it("uses local Monday boundaries and resolves a drop into a due date update", () => {

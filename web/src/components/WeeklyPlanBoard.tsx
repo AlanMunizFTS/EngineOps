@@ -112,40 +112,34 @@ function WeeklyTaskCard({
 function WeekdayColumn({
   date,
   tasks,
+  hiddenTaskIds,
   projectsById,
   isToday,
   onCreateTask,
   onChangeStatus,
+  onChangeVisibility,
 }: {
   date: Date;
   tasks: TaskResponse[];
+  hiddenTaskIds: string[];
   projectsById: Map<string, ProjectResponse>;
   isToday: boolean;
   onCreateTask: (dueDate: string) => void;
   onChangeStatus: (taskId: string, status: TaskStatus) => void;
+  onChangeVisibility: (taskIds: string[], visible: boolean) => void;
 }) {
   const dateKey = localDateKey(date);
   const { setNodeRef, isOver } = useDroppable({ id: `day:${dateKey}` });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [hiddenTaskIds, setHiddenTaskIds] = useState<string[]>([]);
-  const completed = tasks.filter((task) => task.status === "done").length;
   const visibleTasks = tasks.filter((task) => !hiddenTaskIds.includes(task.id));
   const allVisible = visibleTasks.length === tasks.length;
-  const dayStatus = tasks.length === 0
-    ? "No tasks"
-    : completed === tasks.length ? "Done" : "In progress";
-  const completionColor = tasks.length === 0
-    ? isToday ? "bg-sky-500/5" : "bg-ink-900"
-    : completed === tasks.length
-      ? "bg-emerald-500/10"
-      : "bg-amber-500/10";
 
   return (
     <section
       ref={setNodeRef}
       aria-label={date.toLocaleDateString(undefined, { weekday: "long" })}
       className={`flex min-h-72 flex-col border-r border-ink-800 p-2 last:border-r-0 ${
-        isOver ? "bg-ember-500/20" : completionColor
+        isOver ? "bg-ember-500/20" : isToday ? "bg-sky-500/5" : "bg-ink-900"
       }`}
     >
       <header className="relative mb-2 border-b border-ink-800 pb-2 text-center">
@@ -166,15 +160,6 @@ function WeekdayColumn({
         }`}>
           {date.getDate()}
         </p>
-        <p className={`mt-2 text-base font-extrabold uppercase tracking-wide ${
-          tasks.length === 0
-            ? "text-slate-600"
-            : completed === tasks.length ? "text-emerald-400" : "text-amber-300"
-        }`}>
-          {dayStatus}
-        </p>
-        <p className="mt-0.5 text-[11px] text-slate-500">{completed}/{tasks.length} completed</p>
-
         {tasks.length > 0 && (
           <div className="relative mt-2 text-left">
             <button
@@ -197,9 +182,10 @@ function WeekdayColumn({
                     type="checkbox"
                     aria-label={`Show all tasks for ${dateKey}`}
                     checked={allVisible}
-                    onChange={(event) =>
-                      setHiddenTaskIds(event.target.checked ? [] : tasks.map((task) => task.id))
-                    }
+                    onChange={(event) => onChangeVisibility(
+                      tasks.map((task) => task.id),
+                      event.target.checked,
+                    )}
                   />
                   Select all
                 </label>
@@ -212,13 +198,9 @@ function WeekdayColumn({
                           type="checkbox"
                           aria-label={`Show ${task.title}`}
                           checked={checked}
-                          onChange={(event) => {
-                            setHiddenTaskIds((current) =>
-                              event.target.checked
-                                ? current.filter((id) => id !== task.id)
-                                : [...new Set([...current, task.id])],
-                            );
-                          }}
+                          onChange={(event) =>
+                            onChangeVisibility([task.id], event.target.checked)
+                          }
                         />
                         <span className="line-clamp-2">{task.title}</span>
                       </label>
@@ -276,6 +258,7 @@ export default function WeeklyPlanBoard({
   onChangeStatus: (taskId: string, status: TaskStatus) => void;
 }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [hiddenTaskIds, setHiddenTaskIds] = useState<string[]>([]);
   const todayKey = localDateKey(new Date());
   const currentWeekKey = localDateKey(startOfWeek(new Date()));
   const days = useMemo(
@@ -286,7 +269,30 @@ export default function WeeklyPlanBoard({
     () => new Map(projects.map((project) => [project.id, project])),
     [projects],
   );
+  const weekDateKeys = useMemo(
+    () => new Set(days.map(localDateKey)),
+    [days],
+  );
+  const visibleWeekTasks = useMemo(
+    () => tasks.filter(
+      (task) => task.due_date
+        && weekDateKeys.has(task.due_date)
+        && !hiddenTaskIds.includes(task.id),
+    ),
+    [hiddenTaskIds, tasks, weekDateKeys],
+  );
+  const completedVisibleTasks = visibleWeekTasks.filter((task) => task.status === "done").length;
+  const weeklyProgress = visibleWeekTasks.length === 0
+    ? 0
+    : Math.round((completedVisibleTasks / visibleWeekTasks.length) * 100);
   const weekEnd = days[DAY_COUNT - 1];
+
+  function handleVisibilityChange(taskIds: string[], visible: boolean) {
+    const changedIds = new Set(taskIds);
+    setHiddenTaskIds((current) => visible
+      ? current.filter((id) => !changedIds.has(id))
+      : [...new Set([...current, ...taskIds])]);
+  }
 
   function handleDragEnd(event: DragEndEvent) {
     const move = resolveTaskDueDateMove(
@@ -300,14 +306,51 @@ export default function WeeklyPlanBoard({
   return (
     <section className="rounded-lg border border-ink-800 bg-ink-900 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-800 px-4 py-3">
-        <div>
-          <h2 className="font-semibold text-slate-100">Weekly plan</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {localDateKey(weekStart) === currentWeekKey ? "Current week · " : ""}
-            {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            {" – "}
-            {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="font-semibold text-slate-100">Weekly plan</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {localDateKey(weekStart) === currentWeekKey ? "Current week · " : ""}
+              {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {" – "}
+              {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Weekly progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={weeklyProgress}
+            className="relative h-12 w-12 shrink-0"
+          >
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 48 48" aria-hidden="true">
+              <circle
+                cx="24"
+                cy="24"
+                r="19"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="5"
+                className="text-ink-700"
+              />
+              <circle
+                cx="24"
+                cy="24"
+                r="19"
+                fill="none"
+                pathLength="100"
+                stroke="currentColor"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${weeklyProgress} 100`}
+                className="text-emerald-500 transition-[stroke-dasharray] duration-500"
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-slate-100">
+              {weeklyProgress}%
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -353,10 +396,12 @@ export default function WeeklyPlanBoard({
                   key={dateKey}
                   date={date}
                   tasks={dayTasks}
+                  hiddenTaskIds={hiddenTaskIds}
                   projectsById={projectsById}
                   isToday={dateKey === todayKey}
                   onCreateTask={onCreateTask}
                   onChangeStatus={onChangeStatus}
+                  onChangeVisibility={handleVisibilityChange}
                 />
               );
             })}
