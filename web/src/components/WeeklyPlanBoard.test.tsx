@@ -30,6 +30,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
     parent_assigned_at: null,
     start_date: null,
     due_date: "2026-09-28",
+    repeat_daily: false,
     days_planned: null,
     days_taken: null,
     urgency: null,

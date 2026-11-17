@@ -96,6 +96,7 @@ def task_response(task: Task) -> TaskResponse:
         parent_assigned_at=task.parent_assigned_at,
         start_date=task.start_date,
         due_date=task.due_date,
+        repeat_daily=task.repeat_daily,
         days_planned=calculate_days_planned(task.start_date, task.due_date),
         days_taken=(
             working_days_taken(task.start_date, closed_at_date or today)

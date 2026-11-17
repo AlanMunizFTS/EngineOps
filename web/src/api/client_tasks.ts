@@ -52,6 +52,7 @@ export interface TaskResponse {
   parent_assigned_at: string | null;
   start_date: string | null;
   due_date: string | null;
+  repeat_daily: boolean;
   days_planned: number | null;
   days_taken: number | null;
   urgency: Urgency | null;
@@ -215,6 +216,7 @@ export interface TaskCreateFields {
   assignee_ids?: string[];
   start_date?: string | null;
   due_date?: string | null;
+  repeat_daily?: boolean;
 }
 
 export async function createTask(
@@ -251,6 +253,7 @@ export interface TaskUpdateFields {
   assignee_ids?: string[];
   start_date?: string | null;
   due_date?: string | null;
+  repeat_daily?: boolean;
   closed_at?: string | null;
 }
 

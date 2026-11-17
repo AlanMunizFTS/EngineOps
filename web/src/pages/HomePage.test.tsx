@@ -80,6 +80,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
     parent_assigned_at: null,
     start_date: null,
     due_date: "2026-10-01",
+    repeat_daily: false,
     days_planned: null,
     days_taken: null,
     urgency: null,
@@ -159,6 +160,7 @@ describe("HomePage weekly plan", () => {
     fireEvent.change(screen.getByLabelText("Milestone"), { target: { value: "milestone-1" } });
     fireEvent.click(screen.getByLabelText("Ada Lovelace"));
     fireEvent.click(screen.getByLabelText("Grace Hopper"));
+    fireEvent.click(screen.getByLabelText("Repeat every day"));
     fireEvent.click(screen.getByRole("button", { name: "Create Task" }));
 
     await waitFor(() =>
@@ -169,6 +171,7 @@ describe("HomePage weekly plan", () => {
         task_type: "task",
         milestone_id: "milestone-1",
         assignee_ids: ["user-1", "user-2"],
+        repeat_daily: true,
       }),
     );
   });

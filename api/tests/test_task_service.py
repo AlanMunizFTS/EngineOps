@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -44,6 +44,12 @@ class MemoryTasks:
             task,
             subtasks_total=len(children),
             subtasks_completed=sum(c.status == TaskStatus.DONE for c in children),
+        )
+
+    async def get_next_recurrence(self, task_id):
+        return next(
+            (task for task in self.values.values() if task.recurrence_parent_id == task_id),
+            None,
         )
 
     async def list_subtasks(self, task_id):
@@ -147,6 +153,40 @@ async def test_completion_requires_all_subtasks_done(context):
 
     with pytest.raises(ConflictError, match="Parent task must be reopened"):
         await service.change_status(child.id, TaskStatus.IN_PROGRESS)
+
+
+@pytest.mark.asyncio
+async def test_daily_task_creates_exactly_one_next_occurrence(context):
+    tasks, _, _, service = context
+    project_id = uuid.uuid4()
+    assignee_id = uuid.uuid4()
+    recurring = await service.create_task(
+        project_id=project_id,
+        title="Daily inspection",
+        task_type=TaskType.TASK,
+        priority=TaskPriority.HIGH,
+        assignee_ids=[assignee_id],
+        due_date=date(2030, 1, 10),
+        repeat_daily=True,
+    )
+
+    completed = await service.change_status(recurring.id, TaskStatus.DONE)
+    next_occurrence = await tasks.get_next_recurrence(recurring.id)
+
+    assert completed.status == TaskStatus.DONE
+    assert next_occurrence is not None
+    assert next_occurrence.title == recurring.title
+    assert next_occurrence.status == TaskStatus.TODO
+    assert next_occurrence.due_date == date(2030, 1, 11)
+    assert next_occurrence.assignee_ids == [assignee_id]
+    assert next_occurrence.repeat_daily is True
+
+    await service.change_status(recurring.id, TaskStatus.TODO)
+    await service.change_status(recurring.id, TaskStatus.DONE)
+    generated = [
+        task for task in tasks.values.values() if task.recurrence_parent_id == recurring.id
+    ]
+    assert len(generated) == 1
 
 
 @pytest.mark.asyncio

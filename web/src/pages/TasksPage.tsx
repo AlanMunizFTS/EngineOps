@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import AssigneeMultiSelect from "../components/AssigneeMultiSelect";
+import DailyRepeatField from "../components/DailyRepeatField";
 import { PriorityBadge, StatusBadge } from "../components/TaskBadges";
 import ProjectTabs from "../components/ProjectTabs";
 
@@ -28,7 +29,7 @@ export default function TasksPage() {
   const [members, setMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [filters, setFilters] = useState({ status: "", priority: "", taskType: "", milestoneId: "", assigneeId: "" });
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", status: "backlog" as TaskStatus, priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "", labelId: "" });
+  const [form, setForm] = useState({ title: "", description: "", status: "backlog" as TaskStatus, priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "", labelId: "", repeatDaily: false });
   const [error, setError] = useState<string | null>(null);
 
   async function loadAll() {
@@ -64,9 +65,10 @@ export default function TasksPage() {
         title: form.title.trim(), description: form.description || null, status: form.status,
         priority: form.priority, task_type: form.taskType, milestone_id: form.milestoneId || null,
         assignee_ids: form.assigneeIds, start_date: form.startDate || null, due_date: form.dueDate || null,
+        repeat_daily: form.repeatDaily,
       });
       if (form.labelId) await attachTaskLabel(token, created.id, form.labelId);
-      setForm({ title: "", description: "", status: "backlog", priority: "medium", taskType: "task", milestoneId: "", assigneeIds: [], startDate: "", dueDate: "", labelId: "" });
+      setForm({ title: "", description: "", status: "backlog", priority: "medium", taskType: "task", milestoneId: "", assigneeIds: [], startDate: "", dueDate: "", labelId: "", repeatDaily: false });
       setShowForm(false); await loadAll();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to create task"); }
   }
@@ -97,10 +99,11 @@ export default function TasksPage() {
         <AssigneeMultiSelect members={members} selectedIds={form.assigneeIds} onChange={(assigneeIds) => setForm((current) => ({ ...current, assigneeIds }))} />
         <input aria-label="Start date" type="date" className={inputClass} value={form.startDate} onChange={(e) => field("startDate", e.target.value)} />
         <input aria-label="Due date" type="date" className={inputClass} value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
+        <DailyRepeatField checked={form.repeatDaily} onChange={(repeatDaily) => setForm((current) => ({ ...current, repeatDaily }))} />
         <select aria-label="Label" className={inputClass} value={form.labelId} onChange={(e) => field("labelId", e.target.value)}><option value="">No label</option>{labels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
         <button onClick={() => void submitTask()} className="rounded-md bg-ember-500 px-3 py-2 text-sm font-medium text-white">Create Task</button>
       </section>}
-      <div className="overflow-x-auto rounded-md border border-ink-800 bg-ink-900"><table className="w-full text-left text-sm"><thead className="border-b border-ink-800 text-xs uppercase text-slate-500"><tr>{["Task","Status","Priority","Type","Milestone","Assignees","Start","Due","Subtasks"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead><tbody className="divide-y divide-ink-800">{tasks.map((task) => <tr key={task.id} className="hover:bg-ink-800/70"><td className="px-3 py-3"><Link className="font-medium text-slate-100 hover:text-ember-400" to={`/projects/${projectId}/tasks/${task.id}`}>{task.title}</Link></td><td className="px-3"><StatusBadge status={task.status} /></td><td className="px-3"><PriorityBadge priority={task.priority} /></td><td className="px-3 text-slate-400">{task.task_type}</td><td className="px-3 text-slate-400">{task.milestone_id ? milestoneNames.get(task.milestone_id) ?? "—" : "—"}</td><td className="px-3 text-slate-400">{task.assignee_ids.length ? task.assignee_ids.map((id) => memberNames.get(id) ?? "Unknown").join(", ") : "—"}</td><td className="px-3 text-slate-400">{task.start_date ?? "—"}</td><td className="px-3 text-slate-400">{task.due_date ?? "—"}</td><td className="px-3 text-slate-300">{task.subtasks_completed} / {task.subtasks_total}</td></tr>)}</tbody></table>{tasks.length === 0 && <p className="p-6 text-center text-sm text-slate-500">No Tasks match these filters.</p>}</div>
+      <div className="overflow-x-auto rounded-md border border-ink-800 bg-ink-900"><table className="w-full text-left text-sm"><thead className="border-b border-ink-800 text-xs uppercase text-slate-500"><tr>{["Task","Status","Priority","Type","Milestone","Assignees","Start","Due","Repeats","Subtasks"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead><tbody className="divide-y divide-ink-800">{tasks.map((task) => <tr key={task.id} className="hover:bg-ink-800/70"><td className="px-3 py-3"><Link className="font-medium text-slate-100 hover:text-ember-400" to={`/projects/${projectId}/tasks/${task.id}`}>{task.title}</Link></td><td className="px-3"><StatusBadge status={task.status} /></td><td className="px-3"><PriorityBadge priority={task.priority} /></td><td className="px-3 text-slate-400">{task.task_type}</td><td className="px-3 text-slate-400">{task.milestone_id ? milestoneNames.get(task.milestone_id) ?? "—" : "—"}</td><td className="px-3 text-slate-400">{task.assignee_ids.length ? task.assignee_ids.map((id) => memberNames.get(id) ?? "Unknown").join(", ") : "—"}</td><td className="px-3 text-slate-400">{task.start_date ?? "—"}</td><td className="px-3 text-slate-400">{task.due_date ?? "—"}</td><td className="px-3 text-slate-400">{task.repeat_daily ? "Daily" : "—"}</td><td className="px-3 text-slate-300">{task.subtasks_completed} / {task.subtasks_total}</td></tr>)}</tbody></table>{tasks.length === 0 && <p className="p-6 text-center text-sm text-slate-500">No Tasks match these filters.</p>}</div>
     </div>
   </AppShell>;
 }

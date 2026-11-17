@@ -186,6 +186,8 @@ class Task:
     parent_assigned_at: datetime | None = None
     start_date: date | None = None
     due_date: date | None = None
+    repeat_daily: bool = False
+    recurrence_parent_id: UUID | None = None
     labels: list[Label] = field(default_factory=list)
     assignee_ids: list[UUID] = field(default_factory=list)
     subtasks_total: int = 0

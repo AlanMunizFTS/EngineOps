@@ -93,6 +93,8 @@ class FakeTaskRepository(TaskRepository):
         parent_task_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
+        repeat_daily: bool = False,
+        recurrence_parent_id: UUID | None = None,
     ) -> Task:
         now = datetime.now(UTC)
         normalized_assignee_ids = list(
@@ -117,6 +119,8 @@ class FakeTaskRepository(TaskRepository):
             parent_assigned_at=datetime.now(UTC) if parent_task_id is not None else None,
             start_date=start_date,
             due_date=due_date,
+            repeat_daily=repeat_daily,
+            recurrence_parent_id=recurrence_parent_id,
         )
         self._tasks[task.id] = task
         return task
@@ -130,6 +134,12 @@ class FakeTaskRepository(TaskRepository):
             task,
             subtasks_total=len(children),
             subtasks_completed=sum(child.status == TaskStatus.DONE for child in children),
+        )
+
+    async def get_next_recurrence(self, task_id: UUID) -> Task | None:
+        return next(
+            (task for task in self._tasks.values() if task.recurrence_parent_id == task_id),
+            None,
         )
 
     async def list_for_project(

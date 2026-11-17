@@ -18,6 +18,7 @@ class TaskCreateRequest(BaseModel):
     milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
+    repeat_daily: bool = False
 
 
 class TaskUpdateRequest(BaseModel):
@@ -30,6 +31,7 @@ class TaskUpdateRequest(BaseModel):
     milestone_id: UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
+    repeat_daily: bool = False
     closed_at: date | None = None
 
 
@@ -61,6 +63,7 @@ class TaskResponse(BaseModel):
     parent_assigned_at: datetime | None
     start_date: date | None
     due_date: date | None
+    repeat_daily: bool
     days_planned: int | None
     days_taken: int | None
     urgency: Urgency | None

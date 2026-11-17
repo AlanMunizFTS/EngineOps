@@ -12,6 +12,7 @@ import {
 } from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
+import DailyRepeatField from "../components/DailyRepeatField";
 import { PlusIcon } from "../components/icons";
 import Modal, { ModalActions } from "../components/Modal";
 import PersonalKanbanBoard from "../components/PersonalKanbanBoard";
@@ -33,6 +34,7 @@ export default function MyKanbanPage() {
   const [newPriority, setNewPriority] = useState<TaskPriority>("medium");
   const [newStartDate, setNewStartDate] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newRepeatDaily, setNewRepeatDaily] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +115,7 @@ export default function MyKanbanPage() {
         assignee_id: user.id,
         start_date: newStartDate || null,
         due_date: newDueDate || null,
+        repeat_daily: newRepeatDaily,
       });
       setTasks((current) => [created, ...current]);
       if (projectFilter && projectFilter !== created.project_id) setProjectFilter("");
@@ -123,6 +126,7 @@ export default function MyKanbanPage() {
       setNewPriority("medium");
       setNewStartDate("");
       setNewDueDate("");
+      setNewRepeatDaily(false);
       setShowNewTask(false);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create task");
@@ -305,6 +309,8 @@ export default function MyKanbanPage() {
                 />
               </label>
             </div>
+
+            <DailyRepeatField checked={newRepeatDaily} onChange={setNewRepeatDaily} />
 
             <p className="text-xs text-slate-500">
               This task will be assigned to you automatically.

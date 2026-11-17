@@ -7,7 +7,7 @@ function task(id: string, parent_task_id: string | null): TaskResponse {
   return { id, parent_task_id, project_id: "project-1", milestone_id: null, title: id, description: null,
     status: "todo", priority: "medium", task_type: "task", assignee_id: null, assignee_ids: [], created_by: null,
     created_at: id, updated_at: id, closed_at: null, closed_at_date: null, parent_assigned_at: id,
-    start_date: null, due_date: null, days_planned: null, days_taken: null, urgency: null,
+    start_date: null, due_date: null, repeat_daily: false, days_planned: null, days_taken: null, urgency: null,
     priority_score: null, schedule_status: null, labels: [], subtasks_total: 0, subtasks_completed: 0 };
 }
 

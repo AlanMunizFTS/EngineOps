@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskResponse } from "../api/client_tasks";
 import TaskDetailPage from "./TaskDetailPage";
+
+afterEach(cleanup);
 
 const api = vi.hoisted(() => ({
   deleteTask: vi.fn(),
@@ -61,6 +63,7 @@ const task: TaskResponse = {
   parent_assigned_at: null,
   start_date: null,
   due_date: null,
+  repeat_daily: false,
   days_planned: null,
   days_taken: null,
   urgency: null,
@@ -125,5 +128,45 @@ describe("TaskDetailPage", () => {
         expect.objectContaining({ due_date: "2026-10-15" }),
       ),
     );
+  });
+
+  it("allows a top-level Task to repeat every day", async () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/tasks/task-1"]}>
+        <Routes>
+          <Route path="/projects/:projectId/tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByLabelText("Repeat every day"));
+
+    await waitFor(() =>
+      expect(api.updateTask).toHaveBeenCalledWith(
+        "token",
+        "task-1",
+        expect.objectContaining({ repeat_daily: true }),
+      ),
+    );
+  });
+
+  it("shows visible labels for task fields", async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/projects/project-1/tasks/task-1"]}>
+        <Routes>
+          <Route path="/projects/:projectId/tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: "Replace bearing" });
+    [
+      ["task-title", "Title"], ["task-status", "Status"], ["task-priority", "Priority"],
+      ["task-description", "Description"], ["task-type", "Task type"], ["task-milestone", "Milestone"],
+      ["task-start-date", "Start date"], ["task-due-date", "Due date"],
+    ].forEach(([id, label]) => {
+      expect(container.querySelector(`label[for="${id}"]`)).toHaveTextContent(label);
+    });
+    expect(container.querySelector("legend")).toHaveTextContent("Assignees");
   });
 });

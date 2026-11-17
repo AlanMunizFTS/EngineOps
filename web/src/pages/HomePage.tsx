@@ -27,6 +27,7 @@ import AppShell from "../components/AppShell";
 import AskBox from "../components/AskBox";
 import AssigneeMultiSelect from "../components/AssigneeMultiSelect";
 import ChangelogCard from "../components/ChangelogCard";
+import DailyRepeatField from "../components/DailyRepeatField";
 import Modal, { ModalActions } from "../components/Modal";
 import RoadmapCard from "../components/RoadmapCard";
 import WeeklyPlanBoard from "../components/WeeklyPlanBoard";
@@ -77,6 +78,7 @@ export default function HomePage() {
     taskType: "task" as TaskType,
     milestoneId: "",
     assigneeIds: [] as string[],
+    repeatDaily: false,
   });
   const [taskMembers, setTaskMembers] = useState<ProjectMemberDetailResponse[]>([]);
   const [taskMilestones, setTaskMilestones] = useState<MilestoneResponse[]>([]);
@@ -222,6 +224,7 @@ export default function HomePage() {
       taskType: "task",
       milestoneId: "",
       assigneeIds: [],
+      repeatDaily: false,
     });
     setTaskCreateError(null);
     setShowTaskModal(true);
@@ -246,6 +249,7 @@ export default function HomePage() {
         task_type: taskDraft.taskType,
         milestone_id: taskDraft.milestoneId || null,
         assignee_ids: taskDraft.assigneeIds,
+        repeat_daily: taskDraft.repeatDaily,
       });
       setWeeklyTasks((current) => [...current, created]);
       setShowTaskModal(false);
@@ -470,6 +474,7 @@ export default function HomePage() {
                 </select>
               </label>
             </div>
+            <DailyRepeatField checked={taskDraft.repeatDaily} onChange={(repeatDaily) => setTaskDraft((current) => ({ ...current, repeatDaily }))} />
             {taskCreateError && <p className="text-sm text-red-400">{taskCreateError}</p>}
             <ModalActions>
               <button

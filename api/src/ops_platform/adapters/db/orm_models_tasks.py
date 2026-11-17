@@ -4,6 +4,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -129,6 +130,14 @@ class TaskORM(Base):
     )
     start_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    repeat_daily: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
+    recurrence_parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     parent_assigned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

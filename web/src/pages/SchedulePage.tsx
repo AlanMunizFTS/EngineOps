@@ -31,6 +31,7 @@ import {
 } from "../api/client_tasks";
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
+import DailyRepeatField from "../components/DailyRepeatField";
 import { DownloadIcon, PlusIcon } from "../components/icons";
 import { PRIORITY_COLORS, PriorityScoreChip } from "../components/TaskBadges";
 import Modal, { ModalActions } from "../components/Modal";
@@ -677,6 +678,7 @@ export default function SchedulePage() {
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
   const [newTaskStart, setNewTaskStart] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
+  const [newTaskRepeatDaily, setNewTaskRepeatDaily] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // A distance threshold so a plain click on the drag handle (used to
@@ -813,6 +815,7 @@ export default function SchedulePage() {
         assignee_id: newTaskAssigneeId || null,
         start_date: newTaskStart || null,
         due_date: newTaskDue || null,
+        repeat_daily: newTaskParentId ? false : newTaskRepeatDaily,
       };
       const created = newTaskParentId
         ? await createSubtask(token, newTaskParentId, fields)
@@ -823,6 +826,7 @@ export default function SchedulePage() {
       setNewTaskAssigneeId("");
       setNewTaskStart("");
       setNewTaskDue("");
+      setNewTaskRepeatDaily(false);
       setShowNewTaskForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create activity");
@@ -1042,7 +1046,10 @@ export default function SchedulePage() {
               />
               <select
                 value={newTaskParentId}
-                onChange={(e) => setNewTaskParentId(e.target.value)}
+                onChange={(e) => {
+                  setNewTaskParentId(e.target.value);
+                  if (e.target.value) setNewTaskRepeatDaily(false);
+                }}
                 aria-label="Parent task"
                 className="max-w-56 rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               >
@@ -1078,6 +1085,14 @@ export default function SchedulePage() {
                 onChange={(e) => setNewTaskDue(e.target.value)}
                 className="rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500"
               />
+              <div className="min-w-64">
+                <DailyRepeatField
+                  checked={newTaskRepeatDaily}
+                  disabled={Boolean(newTaskParentId)}
+                  disabledReason="Subtasks cannot repeat daily."
+                  onChange={setNewTaskRepeatDaily}
+                />
+              </div>
               <button
                 onClick={handleCreateTask}
                 className="rounded-md bg-ember-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ember-600"

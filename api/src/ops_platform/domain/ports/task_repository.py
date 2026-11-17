@@ -25,10 +25,15 @@ class TaskRepository(ABC):
         parent_task_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
+        repeat_daily: bool = False,
+        recurrence_parent_id: UUID | None = None,
     ) -> Task: ...
 
     @abstractmethod
     async def get(self, task_id: UUID) -> Task | None: ...
+
+    @abstractmethod
+    async def get_next_recurrence(self, task_id: UUID) -> Task | None: ...
 
     @abstractmethod
     async def list_for_project(

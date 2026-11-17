@@ -11,7 +11,7 @@ function task(overrides: Partial<TaskResponse>): TaskResponse {
     title: "Top-level calibration", description: null, status: "todo", priority: "high",
     task_type: "task", assignee_id: null, assignee_ids: [], created_by: null, created_at: "2026-09-01",
     updated_at: "2026-09-01", closed_at: null, closed_at_date: null, parent_assigned_at: null,
-    start_date: null, due_date: null, days_planned: null, days_taken: null, urgency: null,
+    start_date: null, due_date: null, repeat_daily: false, days_planned: null, days_taken: null, urgency: null,
     priority_score: null, schedule_status: null, labels: [], subtasks_total: 2, subtasks_completed: 1,
     ...overrides,
   };

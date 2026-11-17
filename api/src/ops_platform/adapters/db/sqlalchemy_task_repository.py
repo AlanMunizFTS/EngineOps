@@ -38,6 +38,8 @@ def _to_entity(row: TaskORM, total: int = 0, completed: int = 0) -> Task:
         created_by=row.created_by,
         start_date=row.start_date,
         due_date=row.due_date,
+        repeat_daily=row.repeat_daily,
+        recurrence_parent_id=row.recurrence_parent_id,
         closed_at=row.closed_at,
         parent_assigned_at=row.parent_assigned_at,
         created_at=row.created_at,
@@ -90,6 +92,8 @@ class SqlAlchemyTaskRepository(TaskRepository):
         parent_task_id: UUID | None = None,
         start_date: date | None = None,
         due_date: date | None = None,
+        repeat_daily: bool = False,
+        recurrence_parent_id: UUID | None = None,
     ) -> Task:
         normalized_assignee_ids = list(
             dict.fromkeys(
@@ -111,6 +115,8 @@ class SqlAlchemyTaskRepository(TaskRepository):
             parent_assigned_at=datetime.now(UTC) if parent_task_id else None,
             start_date=start_date,
             due_date=due_date,
+            repeat_daily=repeat_daily,
+            recurrence_parent_id=recurrence_parent_id,
         )
         self._session.add(row)
         await self._session.flush()
@@ -126,6 +132,12 @@ class SqlAlchemyTaskRepository(TaskRepository):
 
     async def get(self, task_id: UUID) -> Task | None:
         row = await self._get_row(task_id)
+        return await self._entity(row) if row else None
+
+    async def get_next_recurrence(self, task_id: UUID) -> Task | None:
+        row = await self._session.scalar(
+            select(TaskORM).where(TaskORM.recurrence_parent_id == task_id)
+        )
         return await self._entity(row) if row else None
 
     async def list_for_project(
@@ -228,6 +240,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
             "milestone_id",
             "start_date",
             "due_date",
+            "repeat_daily",
             "closed_at",
         }
         for field, value in changes.items():

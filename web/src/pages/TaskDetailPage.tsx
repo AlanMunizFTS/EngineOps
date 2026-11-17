@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import AppShell from "../components/AppShell";
 import AssigneeMultiSelect from "../components/AssigneeMultiSelect";
+import DailyRepeatField from "../components/DailyRepeatField";
 import { LabelChip, PriorityBadge, StatusBadge } from "../components/TaskBadges";
 import ProjectTabs from "../components/ProjectTabs";
 
@@ -18,6 +19,7 @@ const STATUSES: TaskStatus[] = ["backlog", "todo", "in_progress", "in_review", "
 const TYPES: TaskType[] = ["task", "bug", "improvement", "incident"];
 const PRIORITIES: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const inputClass = "rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-ember-500";
+const fieldLabelClass = "mb-1 block text-xs font-medium text-slate-400";
 
 export default function TaskDetailPage() {
   const { projectId, taskId } = useParams<{ projectId: string; taskId: string }>();
@@ -32,7 +34,7 @@ export default function TaskDetailPage() {
   const [labels, setLabels] = useState<LabelResponse[]>([]);
   const [comments, setComments] = useState<TaskCommentResponse[]>([]);
   const [history, setHistory] = useState<AuditLogEntryResponse[]>([]);
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "" });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "", repeatDaily: false });
   const [newSubtask, setNewSubtask] = useState({ title: "", description: "", assigneeIds: [] as string[], startDate: "", dueDate: "" });
   const [commentBody, setCommentBody] = useState("");
   const [labelToAdd, setLabelToAdd] = useState("");
@@ -51,7 +53,7 @@ export default function TaskDetailPage() {
       ]);
       setProject(projectData); setTask(taskData); setMembers(memberData); setMilestones(milestoneData);
       setLabels(labelData); setComments(commentData); setHistory(historyData);
-      const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeIds: taskData.assignee_ids, startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "" };
+      const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeIds: taskData.assignee_ids, startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "", repeatDaily: taskData.repeat_daily };
       lastSavedForm.current = JSON.stringify(loadedForm);
       setForm(loadedForm);
       const [children, parentData] = await Promise.all([
@@ -80,6 +82,7 @@ export default function TaskDetailPage() {
           assignee_ids: form.assigneeIds,
           start_date: form.startDate || null,
           due_date: form.dueDate || null,
+          repeat_daily: form.repeatDaily,
         });
         lastSavedForm.current = serialized;
         setTask((current) => current ? { ...updated, status: current.status } : updated);
@@ -154,15 +157,16 @@ export default function TaskDetailPage() {
       {error && <p role="alert" className="rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
 
       <section className="grid gap-3 rounded-md border border-ink-800 bg-ink-900 p-4 md:grid-cols-4">
-        <input aria-label="Title" className={`${inputClass} md:col-span-2`} value={form.title} onChange={(e) => field("title", e.target.value)} />
-        <select aria-label="Status" className={inputClass} value={task.status} onChange={(e) => void setStatus(task, e.target.value as TaskStatus)}>{STATUSES.map((x) => <option key={x}>{x}</option>)}</select>
-        <select aria-label="Priority" className={inputClass} value={form.priority} onChange={(e) => field("priority", e.target.value)}>{PRIORITIES.map((x) => <option key={x}>{x}</option>)}</select>
-        <textarea aria-label="Description" className={`${inputClass} md:col-span-2`} value={form.description} onChange={(e) => field("description", e.target.value)} />
-        <select aria-label="Task type" className={inputClass} value={form.taskType} onChange={(e) => field("taskType", e.target.value)}>{TYPES.map((x) => <option key={x}>{x}</option>)}</select>
-        {!task.parent_task_id && <select aria-label="Milestone" className={inputClass} value={form.milestoneId} onChange={(e) => field("milestoneId", e.target.value)}><option value="">No milestone</option>{milestones.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}</select>}
+        <div className="md:col-span-2"><label className={fieldLabelClass} htmlFor="task-title">Title</label><input id="task-title" aria-label="Title" className={`w-full ${inputClass}`} value={form.title} onChange={(e) => field("title", e.target.value)} /></div>
+        <div><label className={fieldLabelClass} htmlFor="task-status">Status</label><select id="task-status" aria-label="Status" className={`w-full ${inputClass}`} value={task.status} onChange={(e) => void setStatus(task, e.target.value as TaskStatus)}>{STATUSES.map((x) => <option key={x}>{x}</option>)}</select></div>
+        <div><label className={fieldLabelClass} htmlFor="task-priority">Priority</label><select id="task-priority" aria-label="Priority" className={`w-full ${inputClass}`} value={form.priority} onChange={(e) => field("priority", e.target.value)}>{PRIORITIES.map((x) => <option key={x}>{x}</option>)}</select></div>
+        <div className="md:col-span-2"><label className={fieldLabelClass} htmlFor="task-description">Description</label><textarea id="task-description" aria-label="Description" className={`w-full ${inputClass}`} value={form.description} onChange={(e) => field("description", e.target.value)} /></div>
+        <div><label className={fieldLabelClass} htmlFor="task-type">Task type</label><select id="task-type" aria-label="Task type" className={`w-full ${inputClass}`} value={form.taskType} onChange={(e) => field("taskType", e.target.value)}>{TYPES.map((x) => <option key={x}>{x}</option>)}</select></div>
+        {!task.parent_task_id && <div><label className={fieldLabelClass} htmlFor="task-milestone">Milestone</label><select id="task-milestone" aria-label="Milestone" className={`w-full ${inputClass}`} value={form.milestoneId} onChange={(e) => field("milestoneId", e.target.value)}><option value="">No milestone</option>{milestones.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}</select></div>}
         <AssigneeMultiSelect members={members} selectedIds={form.assigneeIds} onChange={(assigneeIds) => setForm((current) => ({ ...current, assigneeIds }))} />
-        <input aria-label="Start date" type="date" className={inputClass} value={form.startDate} onChange={(e) => field("startDate", e.target.value)} />
-        <input aria-label="Due date" type="date" className={inputClass} value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
+        <div><label className={fieldLabelClass} htmlFor="task-start-date">Start date</label><input id="task-start-date" aria-label="Start date" type="date" className={`w-full ${inputClass}`} value={form.startDate} onChange={(e) => field("startDate", e.target.value)} /></div>
+        <div><label className={fieldLabelClass} htmlFor="task-due-date">Due date</label><input id="task-due-date" aria-label="Due date" type="date" className={`w-full ${inputClass}`} value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} /></div>
+        {!task.parent_task_id && <DailyRepeatField checked={form.repeatDaily} disabled={task.subtasks_total > 0} disabledReason="A task with subtasks cannot repeat daily." onChange={(repeatDaily) => setForm((current) => ({ ...current, repeatDaily }))} />}
         <p className="self-center text-right text-xs text-slate-500 md:col-span-4" aria-live="polite">
           {isSaving ? "Saving changes..." : "Changes save automatically"}
         </p>
