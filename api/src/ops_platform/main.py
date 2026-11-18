@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ops_platform.api.routers.activity import router as activity_router
 from ops_platform.api.routers.admin import router as admin_router
 from ops_platform.api.routers.auth import router as auth_router
+from ops_platform.api.routers.checklists import router as checklists_router
 from ops_platform.api.routers.export import router as export_router
 from ops_platform.api.routers.file_tree import router as file_tree_router
 from ops_platform.api.routers.kanban import router as kanban_router
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(activity_router)
     app.include_router(labels_router)
+    app.include_router(checklists_router)
     app.include_router(tasks_router)
     app.include_router(task_comments_router)
     app.include_router(milestones_router)

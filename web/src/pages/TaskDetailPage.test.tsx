@@ -19,6 +19,8 @@ const api = vi.hoisted(() => ({
   listSubtasks: vi.fn(),
   listTaskComments: vi.fn(),
   updateTask: vi.fn(),
+  listProjectChecklists: vi.fn(),
+  listTaskChecklists: vi.fn(),
 }));
 
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
@@ -41,6 +43,13 @@ vi.mock("../api/client_tasks", () => ({
   listTaskComments: api.listTaskComments,
   updateTask: api.updateTask,
   updateTaskStatus: vi.fn(),
+}));
+vi.mock("../api/client_checklists", () => ({
+  attachChecklistToTask: vi.fn(),
+  detachChecklistFromTask: vi.fn(),
+  listProjectChecklists: api.listProjectChecklists,
+  listTaskChecklists: api.listTaskChecklists,
+  setTaskChecklistItemCompleted: vi.fn(),
 }));
 
 const task: TaskResponse = {
@@ -86,6 +95,8 @@ describe("TaskDetailPage", () => {
     api.listProjects.mockResolvedValue([]);
     api.listSubtasks.mockResolvedValue([]);
     api.listTaskComments.mockResolvedValue([]);
+    api.listProjectChecklists.mockResolvedValue([]);
+    api.listTaskChecklists.mockResolvedValue([]);
     api.deleteTask.mockResolvedValue(undefined);
     api.updateTask.mockResolvedValue({ ...task, due_date: "2026-10-15" });
     vi.spyOn(window, "confirm").mockReturnValue(true);

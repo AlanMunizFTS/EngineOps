@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ops_platform.api.deps import (
     get_audit_log_repository,
     get_audit_recorder,
+    get_checklist_repository,
     get_current_user,
     get_label_repository,
     get_milestone_repository,
@@ -19,6 +20,7 @@ from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import Task, TaskPriority, TaskStatus, TaskType, User
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.checklist_repository import ChecklistRepository
 from ops_platform.domain.ports.label_repository import LabelRepository
 from ops_platform.domain.ports.milestone_repository import MilestoneRepository
 from ops_platform.domain.ports.project_repository import ProjectRepository
@@ -264,6 +266,7 @@ async def change_task_status(
     tasks: Annotated[TaskRepository, Depends(get_task_repository)],
     milestones: Annotated[MilestoneRepository, Depends(get_milestone_repository)],
     labels: Annotated[LabelRepository, Depends(get_label_repository)],
+    checklists: Annotated[ChecklistRepository, Depends(get_checklist_repository)],
     audit: Annotated[AuditRecorder, Depends(get_audit_recorder)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TaskResponse:
@@ -274,6 +277,11 @@ async def change_task_status(
     except (NotFoundError, ConflictError, ValidationError) as exc:
         _raise_http(exc)
     role = "subtask" if before.is_subtask else "task"
+    if payload.status == TaskStatus.DONE and before.repeat_daily:
+        next_occurrence = await tasks.get_next_recurrence(before.id)
+        if next_occurrence is not None:
+            for checklist in await checklists.list_for_task(before.id):
+                await checklists.attach_to_task(next_occurrence.id, checklist.id)
     await audit.record(
         project_id=before.project_id,
         actor_id=current_user.id,

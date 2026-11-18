@@ -9,6 +9,7 @@ const TABS: StaticTab[] = [
   { label: "Dashboard" },
   { label: "Milestones", suffix: "milestones" },
   { label: "Tasks", suffix: "tasks" },
+  { label: "Checklists", suffix: "checklists" },
   { label: "Kanban", suffix: "kanban" },
   { label: "Schedule", suffix: "schedule" },
   { label: "Material", suffix: "material" },

@@ -12,6 +12,7 @@ from fakes import (
     FakeSession,
     FakeUserRepository,
 )
+from fakes_checklists import FakeChecklistRepository
 from fakes_pieces import FakePieceRepository
 from fakes_tasks import (
     FakeKanbanRepository,
@@ -25,6 +26,7 @@ from fastapi.testclient import TestClient
 from ops_platform.api.deps import (
     get_audit_log_repository,
     get_audit_recorder,
+    get_checklist_repository,
     get_file_tree_repository,
     get_kanban_repository,
     get_label_repository,
@@ -98,6 +100,11 @@ def fake_piece_repository() -> FakePieceRepository:
 
 
 @pytest.fixture
+def fake_checklist_repository() -> FakeChecklistRepository:
+    return FakeChecklistRepository()
+
+
+@pytest.fixture
 def current_user(fake_user_repository: FakeUserRepository) -> User:
     user = User(
         id=uuid.uuid4(),
@@ -150,6 +157,7 @@ def client(
     fake_milestone_repository: FakeMilestoneRepository,
     fake_kanban_repository: FakeKanbanRepository,
     fake_piece_repository: FakePieceRepository,
+    fake_checklist_repository: FakeChecklistRepository,
 ) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_user_repository] = lambda: fake_user_repository
@@ -163,5 +171,6 @@ def client(
     app.dependency_overrides[get_milestone_repository] = lambda: fake_milestone_repository
     app.dependency_overrides[get_kanban_repository] = lambda: fake_kanban_repository
     app.dependency_overrides[get_piece_repository] = lambda: fake_piece_repository
+    app.dependency_overrides[get_checklist_repository] = lambda: fake_checklist_repository
     app.dependency_overrides[get_db_session] = _fake_db_session
     return TestClient(app)

@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AllProjectsPage from "./pages/AllProjectsPage";
+import ChecklistsPage from "./pages/ChecklistsPage";
 import HomePage from "./pages/HomePage";
 import TaskDetailPage from "./pages/TaskDetailPage";
 import TasksPage from "./pages/TasksPage";
@@ -87,6 +88,10 @@ function AppRoutes() {
             <TaskDetailPage />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/projects/:projectId/checklists"
+        element={<ProtectedRoute><ChecklistsPage /></ProtectedRoute>}
       />
       <Route
         path="/projects/:projectId/kanban"

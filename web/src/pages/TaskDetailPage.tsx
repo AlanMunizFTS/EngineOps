@@ -3,6 +3,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { getProject, listProjectMembers, type AuditLogEntryResponse, type ProjectMemberDetailResponse, type ProjectResponse } from "../api/client";
 import {
+  attachChecklistToTask, detachChecklistFromTask, listProjectChecklists,
+  listTaskChecklists, setTaskChecklistItemCompleted,
+  type ProjectChecklistResponse, type TaskChecklistResponse,
+} from "../api/client_checklists";
+import {
   attachTaskLabel, createSubtask, createTaskComment, deleteTask, detachTaskLabel, getTask,
   getTaskHistory, listMilestones, listProjectLabels, listSubtasks, listTaskComments, updateTask,
   updateTaskStatus, type LabelResponse, type MilestoneResponse, type TaskCommentResponse,
@@ -34,6 +39,9 @@ export default function TaskDetailPage() {
   const [labels, setLabels] = useState<LabelResponse[]>([]);
   const [comments, setComments] = useState<TaskCommentResponse[]>([]);
   const [history, setHistory] = useState<AuditLogEntryResponse[]>([]);
+  const [projectChecklists, setProjectChecklists] = useState<ProjectChecklistResponse[]>([]);
+  const [taskChecklists, setTaskChecklists] = useState<TaskChecklistResponse[]>([]);
+  const [checklistToAdd, setChecklistToAdd] = useState("");
   const [form, setForm] = useState({ title: "", description: "", priority: "medium" as TaskPriority, taskType: "task" as TaskType, milestoneId: "", assigneeIds: [] as string[], startDate: "", dueDate: "", repeatDaily: false });
   const [newSubtask, setNewSubtask] = useState({ title: "", description: "", assigneeIds: [] as string[], startDate: "", dueDate: "" });
   const [commentBody, setCommentBody] = useState("");
@@ -47,12 +55,14 @@ export default function TaskDetailPage() {
     if (!token || !projectId || !taskId) return;
     try {
       setError(null);
-      const [projectData, taskData, memberData, milestoneData, labelData, commentData, historyData] = await Promise.all([
+      const [projectData, taskData, memberData, milestoneData, labelData, commentData, historyData, projectChecklistData, taskChecklistData] = await Promise.all([
         getProject(token, projectId), getTask(token, taskId), listProjectMembers(token, projectId),
         listMilestones(token, projectId), listProjectLabels(token, projectId), listTaskComments(token, taskId), getTaskHistory(token, taskId),
+        listProjectChecklists(token, projectId), listTaskChecklists(token, taskId),
       ]);
       setProject(projectData); setTask(taskData); setMembers(memberData); setMilestones(milestoneData);
       setLabels(labelData); setComments(commentData); setHistory(historyData);
+      setProjectChecklists(projectChecklistData); setTaskChecklists(taskChecklistData);
       const loadedForm = { title: taskData.title, description: taskData.description ?? "", priority: taskData.priority, taskType: taskData.task_type, milestoneId: taskData.milestone_id ?? "", assigneeIds: taskData.assignee_ids, startDate: taskData.start_date ?? "", dueDate: taskData.due_date ?? "", repeatDaily: taskData.repeat_daily };
       lastSavedForm.current = JSON.stringify(loadedForm);
       setForm(loadedForm);
@@ -96,6 +106,36 @@ export default function TaskDetailPage() {
   }, [form, token, task?.id, task?.parent_task_id]);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m.full_name])), [members]);
   const availableLabels = labels.filter((label) => !task?.labels.some((attached) => attached.id === label.id));
+  const availableChecklists = projectChecklists.filter(
+    (checklist) => !taskChecklists.some((attached) => attached.id === checklist.id),
+  );
+
+  async function addChecklist(checklistId: string) {
+    if (!token || !task || !checklistId) return;
+    try {
+      const attached = await attachChecklistToTask(token, task.id, checklistId);
+      setTaskChecklists((current) => [...current, attached]);
+      setChecklistToAdd("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to attach checklist");
+    }
+  }
+
+  async function removeChecklist(checklistId: string) {
+    if (!token || !task) return;
+    await detachChecklistFromTask(token, task.id, checklistId);
+    setTaskChecklists((current) => current.filter((item) => item.id !== checklistId));
+  }
+
+  async function toggleChecklistItem(itemId: string, completed: boolean) {
+    if (!token || !task) return;
+    try {
+      const updated = await setTaskChecklistItemCompleted(token, task.id, itemId, completed);
+      setTaskChecklists((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update checklist");
+    }
+  }
 
   async function setStatus(target: TaskResponse, status: TaskStatus) {
     if (!token) return;
@@ -173,6 +213,25 @@ export default function TaskDetailPage() {
       </section>
 
       <section className="rounded-md border border-ink-800 bg-ink-900 p-4"><h2 className="mb-3 text-sm font-semibold text-slate-100">Labels</h2><div className="flex flex-wrap gap-2">{task.labels.map((label) => <button key={label.id} title="Remove label" onClick={async () => { if (!token) return; setTask(await detachTaskLabel(token, task.id, label.id)); }}><LabelChip label={label} /></button>)}<select aria-label="Add label" className={inputClass} value={labelToAdd} onChange={async (e) => { const value = e.target.value; setLabelToAdd(value); if (token && value) { setTask(await attachTaskLabel(token, task.id, value)); setLabelToAdd(""); } }}><option value="">Add label…</option>{availableLabels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div></section>
+
+      <section className="space-y-3 rounded-md border border-ink-800 bg-ink-900 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-sm font-semibold text-slate-100">Checklists</h2><p className="text-xs text-slate-500">Progress is tracked independently for this task.</p></div>
+          <select aria-label="Add checklist" className={inputClass} value={checklistToAdd} onChange={(event) => { const value = event.target.value; setChecklistToAdd(value); if (value) void addChecklist(value); }}>
+            <option value="">Add project checklist…</option>
+            {availableChecklists.map((checklist) => <option key={checklist.id} value={checklist.id}>{checklist.name}</option>)}
+          </select>
+        </div>
+        {taskChecklists.map((checklist) => {
+          const completed = checklist.items.filter((item) => item.completed).length;
+          return <div key={checklist.id} className="rounded-md border border-ink-700 bg-ink-800/60 p-3">
+            <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-medium text-slate-200">{checklist.name} <span className="text-xs font-normal text-slate-500">{completed}/{checklist.items.length}</span></h3><button onClick={() => void removeChecklist(checklist.id)} className="text-xs text-red-400">Remove</button></div>
+            <div className="space-y-2">{checklist.items.map((item) => <label key={item.id} className="flex items-start gap-2 text-sm text-slate-300"><input aria-label={item.content} type="checkbox" checked={item.completed} onChange={(event) => void toggleChecklistItem(item.id, event.target.checked)} /><span className={item.completed ? "text-slate-500 line-through" : ""}>{item.content}</span></label>)}</div>
+            {checklist.items.length === 0 && <p className="text-xs text-slate-500">This checklist has no items.</p>}
+          </div>;
+        })}
+        {taskChecklists.length === 0 && <p className="text-sm text-slate-500">No checklists attached.</p>}
+      </section>
 
       {!task.parent_task_id && <section className="space-y-3 rounded-md border border-ink-800 bg-ink-900 p-4">
         <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold text-slate-100">Subtasks</h2><p className="text-xs text-slate-500">{subtasks.filter((s) => s.status === "done").length} / {subtasks.length} completed</p></div></div>

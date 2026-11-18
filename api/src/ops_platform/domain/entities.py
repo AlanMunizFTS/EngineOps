@@ -213,6 +213,40 @@ class TaskComment:
 
 
 @dataclass(frozen=True, slots=True)
+class ChecklistItem:
+    id: UUID
+    checklist_id: UUID
+    content: str
+    position: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectChecklist:
+    id: UUID
+    project_id: UUID
+    name: str
+    created_at: datetime
+    items: list[ChecklistItem] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class TaskChecklistItem:
+    id: UUID
+    checklist_id: UUID
+    content: str
+    position: int
+    completed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class TaskChecklist:
+    id: UUID
+    project_id: UUID
+    name: str
+    items: list[TaskChecklistItem] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
 class KanbanColumn:
     """`maps_to_statuses` drives card membership - a column shows every task
     whose `status` is in this list. Empty means the column never shows any

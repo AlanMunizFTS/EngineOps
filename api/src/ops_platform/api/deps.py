@@ -9,6 +9,7 @@ from ops_platform.adapters.db.sqlalchemy_audit_log_repository import (
     SqlAlchemyAuditLogRepository,
 )
 from ops_platform.adapters.db.sqlalchemy_audit_recorder import SqlAlchemyAuditRecorder
+from ops_platform.adapters.db.sqlalchemy_checklist_repository import SqlAlchemyChecklistRepository
 from ops_platform.adapters.db.sqlalchemy_file_tree_repository import (
     SqlAlchemyFileTreeRepository,
 )
@@ -29,6 +30,7 @@ from ops_platform.db.session import get_db_session
 from ops_platform.domain.entities import User
 from ops_platform.domain.ports.audit_log_repository import AuditLogRepository
 from ops_platform.domain.ports.audit_recorder import AuditRecorder
+from ops_platform.domain.ports.checklist_repository import ChecklistRepository
 from ops_platform.domain.ports.file_tree_repository import FileTreeRepository
 from ops_platform.domain.ports.kanban_repository import KanbanRepository
 from ops_platform.domain.ports.label_repository import LabelRepository
@@ -64,6 +66,12 @@ def get_task_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TaskRepository:
     return SqlAlchemyTaskRepository(session)
+
+
+def get_checklist_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ChecklistRepository:
+    return SqlAlchemyChecklistRepository(session)
 
 
 def get_task_comment_repository(
