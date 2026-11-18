@@ -180,24 +180,66 @@ class TaskService:
         today = today_in_business_timezone()
         anchor = max(today, task.start_date or today, task.due_date or today)
         next_date = anchor + timedelta(days=1)
+        week_end = today + timedelta(days=6 - today.weekday())
+        if next_date > week_end:
+            return
+        await self._create_daily_occurrence(task, next_date)
+
+    async def _create_daily_occurrence(self, source: Task, occurrence_date: date) -> Task:
         next_task = await self.tasks.create(
-            project_id=task.project_id,
-            title=task.title,
-            description=task.description,
-            task_type=task.task_type,
-            priority=task.priority,
-            created_by=task.created_by,
-            assignee_id=task.assignee_id,
-            assignee_ids=task.assignee_ids,
-            milestone_id=task.milestone_id,
-            start_date=next_date if task.start_date is not None else None,
-            due_date=next_date,
+            project_id=source.project_id,
+            title=source.title,
+            description=source.description,
+            task_type=source.task_type,
+            priority=source.priority,
+            created_by=source.created_by,
+            assignee_id=source.assignee_id,
+            assignee_ids=source.assignee_ids,
+            milestone_id=source.milestone_id,
+            start_date=occurrence_date if source.start_date is not None else None,
+            due_date=occurrence_date,
             repeat_daily=True,
-            recurrence_parent_id=task.id,
+            recurrence_parent_id=source.id,
         )
-        for label in task.labels:
+        for label in source.labels:
             await self.tasks.attach_label(next_task.id, label.id)
-        await self.tasks.set_status(next_task.id, TaskStatus.TODO)
+        return await self.tasks.set_status(next_task.id, TaskStatus.TODO)
+
+    async def ensure_daily_occurrences_for_current_week(
+        self, project_id: UUID
+    ) -> list[tuple[Task, Task]]:
+        """Materialize daily occurrences only through the current week's Sunday.
+
+        Returns ``(source, occurrence)`` pairs so callers can copy integrations
+        such as attached checklists without coupling this service to them.
+        """
+        today = today_in_business_timezone()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        project_tasks = await self.tasks.list_for_project(project_id)
+        recurring = [task for task in project_tasks if task.repeat_daily]
+        parent_ids = {
+            task.recurrence_parent_id
+            for task in recurring
+            if task.recurrence_parent_id is not None
+        }
+        tails = [task for task in recurring if task.id not in parent_ids]
+        created: list[tuple[Task, Task]] = []
+        for tail in tails:
+            anchor = tail.due_date or tail.start_date
+            if anchor is None:
+                next_date = today
+            elif anchor < week_start:
+                next_date = week_start
+            else:
+                next_date = anchor + timedelta(days=1)
+            source = tail
+            while next_date <= week_end:
+                occurrence = await self._create_daily_occurrence(source, next_date)
+                created.append((source, occurrence))
+                source = occurrence
+                next_date += timedelta(days=1)
+        return created
 
     async def delete_task(self, task_id: UUID) -> Task:
         task = await self.get(task_id)

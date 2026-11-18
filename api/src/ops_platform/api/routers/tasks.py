@@ -172,6 +172,9 @@ async def list_project_tasks(
     project_id: UUID,
     projects: Annotated[ProjectRepository, Depends(get_project_repository)],
     tasks: Annotated[TaskRepository, Depends(get_task_repository)],
+    milestones: Annotated[MilestoneRepository, Depends(get_milestone_repository)],
+    labels: Annotated[LabelRepository, Depends(get_label_repository)],
+    checklists: Annotated[ChecklistRepository, Depends(get_checklist_repository)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
     include_subtasks: bool = False,
     status_filter: Annotated[TaskStatus | None, Query(alias="status")] = None,
@@ -182,6 +185,14 @@ async def list_project_tasks(
     label_id: UUID | None = None,
 ) -> list[TaskResponse]:
     await _project_or_404(projects, project_id)
+    generated = await _service(
+        tasks, milestones, labels
+    ).ensure_daily_occurrences_for_current_week(project_id)
+    for source, occurrence in generated:
+        for checklist in await checklists.list_for_task(source.id):
+            await checklists.attach_to_task(occurrence.id, checklist.id)
+    if generated:
+        await session.commit()
     result = await tasks.list_for_project(
         project_id,
         include_subtasks=include_subtasks,

@@ -55,6 +55,10 @@ class MemoryTasks:
     async def list_subtasks(self, task_id):
         return [task for task in self.values.values() if task.parent_task_id == task_id]
 
+    async def list_for_project(self, project_id, **filters):
+        del filters
+        return [task for task in self.values.values() if task.project_id == project_id]
+
     async def has_children(self, task_id):
         return bool(await self.list_subtasks(task_id))
 
@@ -156,8 +160,12 @@ async def test_completion_requires_all_subtasks_done(context):
 
 
 @pytest.mark.asyncio
-async def test_daily_task_creates_exactly_one_next_occurrence(context):
+async def test_daily_task_creates_exactly_one_next_occurrence(context, monkeypatch):
     tasks, _, _, service = context
+    monkeypatch.setattr(
+        "ops_platform.application.task_service.today_in_business_timezone",
+        lambda: date(2030, 1, 10),
+    )
     project_id = uuid.uuid4()
     assignee_id = uuid.uuid4()
     recurring = await service.create_task(
@@ -187,6 +195,34 @@ async def test_daily_task_creates_exactly_one_next_occurrence(context):
         task for task in tasks.values.values() if task.recurrence_parent_id == recurring.id
     ]
     assert len(generated) == 1
+
+
+@pytest.mark.asyncio
+async def test_daily_task_materializes_only_current_week(context, monkeypatch):
+    tasks, _, _, service = context
+    monkeypatch.setattr(
+        "ops_platform.application.task_service.today_in_business_timezone",
+        lambda: date(2030, 1, 7),
+    )
+    project_id = uuid.uuid4()
+    await service.create_task(
+        project_id=project_id,
+        title="Daily inspection",
+        task_type=TaskType.TASK,
+        priority=TaskPriority.MEDIUM,
+        due_date=date(2030, 1, 7),
+        repeat_daily=True,
+    )
+
+    generated = await service.ensure_daily_occurrences_for_current_week(project_id)
+    assert [occurrence.due_date for _, occurrence in generated] == [
+        date(2030, 1, day) for day in range(8, 14)
+    ]
+    assert await service.ensure_daily_occurrences_for_current_week(project_id) == []
+    assert all(
+        task.due_date is None or task.due_date <= date(2030, 1, 13)
+        for task in tasks.values.values()
+    )
 
 
 @pytest.mark.asyncio
