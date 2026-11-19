@@ -226,6 +226,69 @@ async def test_daily_task_materializes_only_current_week(context, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_disabling_daily_repeat_removes_pending_series_but_keeps_history(
+    context, monkeypatch
+):
+    tasks, _, _, service = context
+    monkeypatch.setattr(
+        "ops_platform.application.task_service.today_in_business_timezone",
+        lambda: date(2030, 1, 7),
+    )
+    project_id = uuid.uuid4()
+    recurring = await service.create_task(
+        project_id=project_id,
+        title="Daily inspection",
+        task_type=TaskType.TASK,
+        priority=TaskPriority.MEDIUM,
+        due_date=date(2030, 1, 7),
+        repeat_daily=True,
+    )
+    await service.ensure_daily_occurrences_for_current_week(project_id)
+    tuesday = await tasks.get_next_recurrence(recurring.id)
+    assert tuesday is not None
+    await service.change_status(recurring.id, TaskStatus.DONE)
+    await service.change_status(tuesday.id, TaskStatus.DONE)
+
+    updated = await service.update_task(recurring.id, repeat_daily=False)
+
+    remaining = await tasks.list_for_project(project_id)
+    assert updated.repeat_daily is False
+    assert {task.id for task in remaining} == {recurring.id, tuesday.id}
+    assert all(task.status == TaskStatus.DONE for task in remaining)
+    assert all(task.repeat_daily is False for task in remaining)
+
+
+@pytest.mark.asyncio
+async def test_disabling_repeat_from_generated_occurrence_keeps_only_that_pending_task(
+    context, monkeypatch
+):
+    tasks, _, _, service = context
+    monkeypatch.setattr(
+        "ops_platform.application.task_service.today_in_business_timezone",
+        lambda: date(2030, 1, 7),
+    )
+    project_id = uuid.uuid4()
+    recurring = await service.create_task(
+        project_id=project_id,
+        title="Daily inspection",
+        task_type=TaskType.TASK,
+        priority=TaskPriority.MEDIUM,
+        due_date=date(2030, 1, 7),
+        repeat_daily=True,
+    )
+    await service.ensure_daily_occurrences_for_current_week(project_id)
+    selected = await tasks.get_next_recurrence(recurring.id)
+    assert selected is not None
+
+    updated = await service.update_task(selected.id, repeat_daily=False)
+
+    remaining = await tasks.list_for_project(project_id)
+    assert updated.id == selected.id
+    assert updated.repeat_daily is False
+    assert [task.id for task in remaining] == [selected.id]
+
+
+@pytest.mark.asyncio
 async def test_done_parent_rejects_new_subtask(context):
     _, _, _, service = context
     project_id = uuid.uuid4()

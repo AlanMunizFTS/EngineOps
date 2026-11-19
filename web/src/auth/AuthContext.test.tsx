@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider, useAuth } from "./AuthContext";
@@ -53,6 +53,7 @@ describe("AuthProvider", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
     localStorage.clear();
     vi.clearAllMocks();
@@ -73,5 +74,46 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("expired")).toHaveTextContent("expired");
     });
     expect(localStorage.getItem("engineops_token")).toBeNull();
+  });
+
+  it("signs out at the JWT expiration time without polling the API", async () => {
+    vi.useFakeTimers();
+    const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 60 }));
+    const token = `header.${payload}.signature`;
+    localStorage.setItem("engineops_token", token);
+
+    render(
+      <AuthProvider>
+        <AuthState />
+      </AuthProvider>,
+    );
+
+    await act(async () => Promise.resolve());
+    expect(screen.getByTestId("token")).toHaveTextContent(token);
+    expect(api.getCurrentUser).toHaveBeenCalledTimes(1);
+
+    act(() => vi.advanceTimersByTime(61_000));
+
+    expect(screen.getByTestId("token")).toHaveTextContent("signed-out");
+    expect(screen.getByTestId("expired")).toHaveTextContent("expired");
+    expect(api.getCurrentUser).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("engineops_token")).toBeNull();
+  });
+
+  it("does not validate an already expired stored JWT against the API", async () => {
+    const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 1 }));
+    localStorage.setItem("engineops_token", `header.${payload}.signature`);
+
+    render(
+      <AuthProvider>
+        <AuthState />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("token")).toHaveTextContent("signed-out");
+      expect(screen.getByTestId("expired")).toHaveTextContent("expired");
+    });
+    expect(api.getCurrentUser).not.toHaveBeenCalled();
   });
 });

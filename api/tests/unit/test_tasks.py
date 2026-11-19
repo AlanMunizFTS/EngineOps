@@ -241,6 +241,36 @@ def test_update_task(client: TestClient, auth_headers: dict[str, str]) -> None:
     assert body["task_type"] == "bug"
 
 
+def test_disabling_daily_repeat_removes_generated_pending_occurrences(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    project_id = _create_project(client, auth_headers)
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    task = client.post(
+        f"/projects/{project_id}/tasks",
+        json={
+            "title": "Daily inspection",
+            "due_date": week_start.isoformat(),
+            "repeat_daily": True,
+        },
+        headers=auth_headers,
+    ).json()
+    generated = client.get(f"/projects/{project_id}/tasks", headers=auth_headers).json()
+    assert len(generated) > 1
+
+    response = client.patch(
+        f"/tasks/{task['id']}",
+        json={"repeat_daily": False},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["repeat_daily"] is False
+    remaining = client.get(f"/projects/{project_id}/tasks", headers=auth_headers).json()
+    assert [item["id"] for item in remaining] == [task["id"]]
+
+
 def test_get_task_404_for_unknown_id(client: TestClient, auth_headers: dict[str, str]) -> None:
     response = client.get(f"/tasks/{uuid.uuid4()}", headers=auth_headers)
     assert response.status_code == 404

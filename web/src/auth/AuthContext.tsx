@@ -6,8 +6,10 @@ import {
   getCurrentUser,
   type UserResponse,
 } from "../api/client";
+import { getTokenExpirationTime, isTokenExpired } from "./token";
 
 const TOKEN_STORAGE_KEY = "engineops_token";
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 interface AuthContextValue {
   token: string | null;
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       setToken(null);
       setUser(null);
+      setIsLoading(false);
       setSessionExpired(true);
     }
 
@@ -43,18 +46,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!token) return;
+
+    const activeToken = token;
+    let expirationTimer: number | undefined;
+
+    function checkExpirationAndSchedule() {
+      if (expirationTimer !== undefined) window.clearTimeout(expirationTimer);
+
+      if (isTokenExpired(activeToken)) {
+        window.dispatchEvent(new Event(AUTHENTICATION_EXPIRED_EVENT));
+        return;
+      }
+
+      const expirationTime = getTokenExpirationTime(activeToken);
+      if (expirationTime === null) return;
+
+      expirationTimer = window.setTimeout(
+        checkExpirationAndSchedule,
+        Math.min(expirationTime - Date.now(), MAX_TIMEOUT_MS),
+      );
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") checkExpirationAndSchedule();
+    }
+
+    checkExpirationAndSchedule();
+    window.addEventListener("focus", checkExpirationAndSchedule);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (expirationTimer !== undefined) window.clearTimeout(expirationTimer);
+      window.removeEventListener("focus", checkExpirationAndSchedule);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [token]);
+
+  useEffect(() => {
     if (!token) {
       setIsLoading(false);
       return;
     }
+
+    if (isTokenExpired(token)) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     getCurrentUser(token)
-      .then(setUser)
+      .then((nextUser) => {
+        if (!cancelled) setUser(nextUser);
+      })
       .catch(() => {
+        if (cancelled) return;
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         setToken(null);
         setUser(null);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   function setSession(nextToken: string, nextUser: UserResponse) {

@@ -155,7 +155,46 @@ class TaskService:
                 raise ConflictError("Subtasks cannot be assigned directly to a Milestone")
             if milestone_id is not None:
                 await self._validate_milestone(task.project_id, milestone_id)
+        if changes.get("repeat_daily", ...) is False and task.repeat_daily:
+            return await self._deactivate_daily_series(task, changes)
         return await self.tasks.update(task_id, **changes)
+
+    async def _deactivate_daily_series(self, selected: Task, changes: dict[str, Any]) -> Task:
+        """Stop a daily series and remove its uncompleted generated occurrences.
+
+        The occurrence selected by the user remains as a regular task. Completed
+        occurrences are retained as history, while every other pending occurrence
+        in the same recurrence chain is removed.
+        """
+        project_tasks = await self.tasks.list_for_project(selected.project_id)
+        by_id = {task.id: task for task in project_tasks}
+
+        root = selected
+        visited: set[UUID] = set()
+        while root.recurrence_parent_id in by_id and root.id not in visited:
+            visited.add(root.id)
+            root = by_id[root.recurrence_parent_id]  # type: ignore[index]
+
+        children_by_parent = {
+            task.recurrence_parent_id: task
+            for task in project_tasks
+            if task.recurrence_parent_id is not None
+        }
+        series: list[Task] = []
+        occurrence: Task | None = root
+        while occurrence is not None and occurrence.id not in {item.id for item in series}:
+            series.append(occurrence)
+            occurrence = children_by_parent.get(occurrence.id)
+
+        updated = await self.tasks.update(selected.id, **changes)
+        for occurrence in series:
+            if occurrence.id == selected.id:
+                continue
+            if occurrence.status == TaskStatus.DONE:
+                await self.tasks.update(occurrence.id, repeat_daily=False)
+            else:
+                await self.tasks.delete(occurrence.id)
+        return updated
 
     async def change_status(self, task_id: UUID, new_status: TaskStatus) -> Task:
         task = await self.get(task_id)

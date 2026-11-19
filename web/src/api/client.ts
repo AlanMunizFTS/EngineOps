@@ -1,10 +1,25 @@
+import { isTokenExpired } from "../auth/token";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export const AUTHENTICATION_EXPIRED_EVENT = "engineops:authentication-expired";
 
-function notifyIfAuthenticationExpired(response: Response): void {
-  if (response.status === 401 && typeof window !== "undefined") {
+function notifyAuthenticationExpired(): void {
+  if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(AUTHENTICATION_EXPIRED_EVENT));
+  }
+}
+
+function notifyIfAuthenticationExpired(response: Response): void {
+  if (response.status === 401) {
+    notifyAuthenticationExpired();
+  }
+}
+
+function assertTokenIsActive(token: string): void {
+  if (isTokenExpired(token)) {
+    notifyAuthenticationExpired();
+    throw new Error("Your session expired. Please sign in again.");
   }
 }
 
@@ -126,6 +141,7 @@ export async function authFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  assertTokenIsActive(token);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -148,6 +164,7 @@ export async function login(email: string, password: string): Promise<TokenRespo
 }
 
 export async function getCurrentUser(token: string): Promise<UserResponse> {
+  assertTokenIsActive(token);
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -225,6 +242,7 @@ export function getRecentActivity(token: string, limit = 20): Promise<ActivityEn
 // Binary download, not JSON - can't go through authFetch/parseOrThrow, which
 // always calls response.json().
 export async function downloadProjectExport(token: string, projectId: string): Promise<void> {
+  assertTokenIsActive(token);
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}/export.xlsx`, {
     headers: { Authorization: `Bearer ${token}` },
   });

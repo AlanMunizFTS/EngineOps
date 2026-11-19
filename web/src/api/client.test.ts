@@ -23,6 +23,20 @@ describe("authenticated API requests", () => {
     expect(onExpired).toHaveBeenCalledOnce();
   });
 
+  it("rejects a locally expired JWT without contacting the API", async () => {
+    const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 1 }));
+    const expiredToken = `header.${payload}.signature`;
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const onExpired = vi.fn();
+    window.addEventListener(AUTHENTICATION_EXPIRED_EVENT, onExpired, { once: true });
+
+    await expect(authFetch(expiredToken, "/projects")).rejects.toThrow(
+      "Your session expired. Please sign in again.",
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onExpired).toHaveBeenCalledOnce();
+  });
+
   it("formats FastAPI validation details as a readable field error", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
