@@ -66,6 +66,25 @@ for the Task/Milestone decision and migration boundary.
 
 ## Local development
 
+### Docker with hot reload (default)
+
+`docker-compose.override.yml` is merged automatically by `docker compose up`. It bind-mounts
+`api/src`, `api/alembic`, and `web/` into the containers and enables uvicorn `--reload` and
+Vite HMR, so code changes apply without rebuilding.
+
+| Change | Command |
+|---|---|
+| Python / TS source | nothing — reloads in ~1 s |
+| New Alembic revision | `docker compose run --rm api-migrate` |
+| `api/pyproject.toml` | `docker compose up -d --build api api-migrate` |
+| `web/package.json` | `docker compose up -d --build -V web` (`-V` refreshes `node_modules`) |
+
+File watching polls (Windows bind mounts don't forward file events). Tune the interval with
+`API_WATCH_POLL_MS` / `WEB_WATCH_POLL_MS` in `.env` (default 1000). To run the plain
+image-baked stack instead: `docker compose -f docker-compose.yml up -d`.
+
+### Without Docker
+
 Backend:
 
 ```bash

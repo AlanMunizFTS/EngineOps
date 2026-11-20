@@ -1,0 +1,51 @@
+# Development overrides — loaded automatically by `docker compose up` (merged on top of
+# docker-compose.yml). Bind-mounts source code and enables hot reload so code changes apply
+# without rebuilding images.
+#
+# Rebuild (`docker compose up -d --build`) is only needed when dependencies change:
+#   - api: api/pyproject.toml
+#   - web: web/package.json  -> also pass `-V` to refresh the node_modules volume
+#
+# File watching uses polling because Docker Desktop on Windows does not forward filesystem
+# events from Windows-host bind mounts into Linux containers. Poll intervals are kept
+# coarse (1 s by default) to keep idle CPU low; tune via the *_POLL_* variables below.
+
+services:
+  api-migrate:
+    environment:
+      # Mounted source shadows the copy pip installed into site-packages at build time.
+      PYTHONPATH: /app/src
+    volumes:
+      - ./api/src:/app/src:ro
+      - ./api/alembic:/app/alembic:ro
+      - ./api/alembic.ini:/app/alembic.ini:ro
+
+  api:
+    command:
+      - uvicorn
+      - ops_platform.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/src
+    environment:
+      PYTHONPATH: /app/src
+      WATCHFILES_FORCE_POLLING: "true"
+      WATCHFILES_POLL_DELAY_MS: ${API_WATCH_POLL_MS:-1000}
+    volumes:
+      - ./api/src:/app/src:ro
+      - ./api/alembic:/app/alembic:ro
+      - ./api/alembic.ini:/app/alembic.ini:ro
+      - ./api/utils:/app/utils:ro
+
+  web:
+    environment:
+      DEV_WATCH_POLLING: "true"
+      DEV_WATCH_POLL_MS: ${WEB_WATCH_POLL_MS:-1000}
+    volumes:
+      - ./web:/app
+      # Anonymous volume keeps the container's Linux node_modules instead of the host's.
+      - /app/node_modules
